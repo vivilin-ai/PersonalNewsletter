@@ -1,0 +1,143 @@
+{
+  "domain_id": "ai",
+  "display_name": "AI",
+  "description": "AI labs, researchers, infrastructure builders, product leaders, and high-signal operators.",
+  "default_language": "zh-CN",
+  "accounts": [
+    {
+      "handle": "sama",
+      "label": "Sam Altman",
+      "role": "lab_leader",
+      "tier": "core",
+      "weight": 1.0,
+      "tags": ["openai", "models", "product"],
+      "rationale": "OpenAI leadership and product direction."
+    },
+    {
+      "handle": "gdb",
+      "label": "Greg Brockman",
+      "role": "lab_leader",
+      "tier": "core",
+      "weight": 0.9,
+      "tags": ["openai", "engineering", "launches"],
+      "rationale": "OpenAI engineering and launch signal."
+    },
+    {
+      "handle": "karpathy",
+      "label": "Andrej Karpathy",
+      "role": "researcher_builder",
+      "tier": "core",
+      "weight": 1.0,
+      "tags": ["llm", "education", "engineering"],
+      "rationale": "Deep technical commentary on models and AI engineering."
+    },
+    {
+      "handle": "AndrewYNg",
+      "label": "Andrew Ng",
+      "role": "educator_operator",
+      "tier": "core",
+      "weight": 0.85,
+      "tags": ["education", "industry", "agents"],
+      "rationale": "Broad AI adoption and education signal."
+    },
+    {
+      "handle": "ylecun",
+      "label": "Yann LeCun",
+      "role": "researcher",
+      "tier": "edge",
+      "weight": 0.85,
+      "tags": ["research", "critique", "architecture"],
+      "rationale": "Important skeptical and alternative research perspective."
+    },
+    {
+      "handle": "demishassabis",
+      "label": "Demis Hassabis",
+      "role": "lab_leader",
+      "tier": "core",
+      "weight": 0.9,
+      "tags": ["deepmind", "research", "science"],
+      "rationale": "DeepMind and scientific AI direction."
+    },
+    {
+      "handle": "JeffDean",
+      "label": "Jeff Dean",
+      "role": "research_leader",
+      "tier": "signal",
+      "weight": 0.85,
+      "tags": ["google", "research", "infrastructure"],
+      "rationale": "Google AI research and infrastructure signal."
+    },
+    {
+      "handle": "hardmaru",
+      "label": "David Ha",
+      "role": "researcher",
+      "tier": "signal",
+      "weight": 0.8,
+      "tags": ["research", "agents", "papers"],
+      "rationale": "Research commentary and paper signal."
+    },
+    {
+      "handle": "swyx",
+      "label": "Swyx",
+      "role": "builder_curator",
+      "tier": "signal",
+      "weight": 0.8,
+      "tags": ["ai-engineering", "agents", "developer-tools"],
+      "rationale": "AI engineering and developer ecosystem signal."
+    },
+    {
+      "handle": "nearcyan",
+      "label": "Near",
+      "role": "builder",
+      "tier": "edge",
+      "weight": 0.65,
+      "tags": ["agents", "experiments", "frontier"],
+      "rationale": "Fast-moving builder perspective and experiments."
+    },
+    {
+      "handle": "levelsio",
+      "label": "Pieter Levels",
+      "role": "indie_builder",
+      "tier": "edge",
+      "weight": 0.65,
+      "tags": ["products", "agents", "indie"],
+      "rationale": "Indie builder adoption and product-market signal."
+    },
+    {
+      "handle": "rowancheung",
+      "label": "Rowan Cheung",
+      "role": "curator",
+      "tier": "signal",
+      "weight": 0.7,
+      "tags": ["news", "roundups", "tools"],
+      "rationale": "High-frequency AI news curation."
+    },
+    {
+      "handle": "bindureddy",
+      "label": "Bindu Reddy",
+      "role": "operator",
+      "tier": "signal",
+      "weight": 0.65,
+      "tags": ["models", "startups", "enterprise"],
+      "rationale": "Startup and model ecosystem commentary."
+    },
+    {
+      "handle": "aidan_mclau",
+      "label": "Aidan McLaughlin",
+      "role": "observer",
+      "tier": "edge",
+      "weight": 0.55,
+      "tags": ["culture", "ai-discourse", "product"],
+      "rationale": "AI discourse and product culture signal."
+    },
+    {
+      "handle": "natfriedman",
+      "label": "Nat Friedman",
+      "role": "investor_builder",
+      "tier": "signal",
+      "weight": 0.75,
+      "tags": ["startups", "open-source", "models"],
+      "rationale": "Investor and builder view across AI startups."
+    }
+  ]
+}

@@ -1,0 +1,143 @@
+{
+  "domain_id": "us-stocks",
+  "display_name": "US Stocks",
+  "description": "US equity market news, macro, tech stocks, earnings, positioning, and trader commentary.",
+  "default_language": "zh-CN",
+  "accounts": [
+    {
+      "handle": "zerohedge",
+      "label": "ZeroHedge",
+      "role": "macro_news",
+      "tier": "signal",
+      "weight": 0.75,
+      "tags": ["macro", "rates", "risk"],
+      "rationale": "Fast macro and market-moving headlines."
+    },
+    {
+      "handle": "unusual_whales",
+      "label": "Unusual Whales",
+      "role": "market_data",
+      "tier": "core",
+      "weight": 0.9,
+      "tags": ["options", "flows", "stocks"],
+      "rationale": "Options, flows, and US equity data signal."
+    },
+    {
+      "handle": "KobeissiLetter",
+      "label": "The Kobeissi Letter",
+      "role": "macro_markets",
+      "tier": "core",
+      "weight": 0.9,
+      "tags": ["macro", "fed", "equities"],
+      "rationale": "Macro summaries with market context."
+    },
+    {
+      "handle": "bespokeinvest",
+      "label": "Bespoke",
+      "role": "market_research",
+      "tier": "core",
+      "weight": 0.85,
+      "tags": ["research", "breadth", "seasonality"],
+      "rationale": "Data-rich market research and charts."
+    },
+    {
+      "handle": "LizAnnSonders",
+      "label": "Liz Ann Sonders",
+      "role": "strategist",
+      "tier": "core",
+      "weight": 0.85,
+      "tags": ["macro", "strategy", "economy"],
+      "rationale": "High-quality macro and market strategy signal."
+    },
+    {
+      "handle": "charliebilello",
+      "label": "Charlie Bilello",
+      "role": "market_data",
+      "tier": "signal",
+      "weight": 0.8,
+      "tags": ["charts", "macro", "indices"],
+      "rationale": "Concise market data and historical context."
+    },
+    {
+      "handle": "elerianm",
+      "label": "Mohamed El-Erian",
+      "role": "macro",
+      "tier": "signal",
+      "weight": 0.8,
+      "tags": ["fed", "macro", "policy"],
+      "rationale": "Policy and macro interpretation."
+    },
+    {
+      "handle": "fundstrat",
+      "label": "Fundstrat",
+      "role": "strategy",
+      "tier": "signal",
+      "weight": 0.75,
+      "tags": ["strategy", "spx", "risk"],
+      "rationale": "Equity strategy and risk appetite commentary."
+    },
+    {
+      "handle": "markets",
+      "label": "Bloomberg Markets",
+      "role": "news",
+      "tier": "core",
+      "weight": 0.85,
+      "tags": ["news", "macro", "global"],
+      "rationale": "Market-moving institutional news flow."
+    },
+    {
+      "handle": "DeItaone",
+      "label": "DeItaone",
+      "role": "breaking_news",
+      "tier": "signal",
+      "weight": 0.75,
+      "tags": ["breaking", "earnings", "macro"],
+      "rationale": "Fast headline stream for market events."
+    },
+    {
+      "handle": "bespokecrypto",
+      "label": "Bespoke Crypto",
+      "role": "risk_cross_asset",
+      "tier": "edge",
+      "weight": 0.55,
+      "tags": ["crypto", "risk", "liquidity"],
+      "rationale": "Cross-asset risk appetite context."
+    },
+    {
+      "handle": "DividendGrowth",
+      "label": "Dividend Growth Investor",
+      "role": "long_term_investing",
+      "tier": "edge",
+      "weight": 0.6,
+      "tags": ["dividends", "long-term", "quality"],
+      "rationale": "Long-term equity perspective beyond daily trading."
+    },
+    {
+      "handle": "StockMKTNewz",
+      "label": "Stock Market News",
+      "role": "equity_news",
+      "tier": "signal",
+      "weight": 0.75,
+      "tags": ["stocks", "earnings", "headlines"],
+      "rationale": "Broad US stock news and earnings headlines."
+    },
+    {
+      "handle": "WallStJesus",
+      "label": "Wall St. Jesus",
+      "role": "flow_trader",
+      "tier": "edge",
+      "weight": 0.65,
+      "tags": ["flows", "trading", "sentiment"],
+      "rationale": "Trader flow and sentiment perspective."
+    },
+    {
+      "handle": "Mayhem4Markets",
+      "label": "Mayhem",
+      "role": "trader_observer",
+      "tier": "edge",
+      "weight": 0.6,
+      "tags": ["trading", "sentiment", "charts"],
+      "rationale": "Trading desk style read on sentiment and positioning."
+    }
+  ]
+}

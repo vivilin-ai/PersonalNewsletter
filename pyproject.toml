@@ -1,0 +1,11 @@
+[project]
+name = "personal-newsletter-skill"
+version = "0.1.0"
+description = "OpenClaw/Codex/Claude Code skill for daily newsletters from curated X account pools."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]

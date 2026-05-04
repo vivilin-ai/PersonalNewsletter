@@ -1,0 +1,20 @@
+{
+  "name": "personal-newsletter",
+  "version": "0.1.0",
+  "description": "Generate daily personal newsletters from curated X account pools for AI and US stocks, using free cookie-based bird access by default.",
+  "author": {
+    "name": "Personal Newsletter Contributors"
+  },
+  "homepage": "https://github.com/linxiaowei/personal-newsletter",
+  "repository": "https://github.com/linxiaowei/personal-newsletter",
+  "license": "MIT",
+  "keywords": [
+    "newsletter",
+    "x",
+    "twitter",
+    "openclaw",
+    "claude-code",
+    "ai",
+    "stocks"
+  ]
+}

@@ -1,0 +1,8 @@
+interface:
+  display_name: "Personal Newsletter"
+  short_description: "Generate daily AI and US stocks newsletters from curated X account pools."
+  default_prompt: "Generate today's AI or US stocks newsletter from my configured X account pool, cite original accounts, and deliver it if configured."
+  brand_color: "#2F6F5E"
+
+policy:
+  allow_implicit_invocation: true

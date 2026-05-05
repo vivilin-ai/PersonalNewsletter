@@ -12,16 +12,16 @@ Use this skill to create a daily account-pool newsletter from X posts in the `ai
 1. Check X access:
 
 ```bash
-bird check
+python3 skills/personal-newsletter/scripts/newsletter.py diagnose
 ```
 
-Bird requires an authenticated X session. On a local desktop, this usually comes from Chrome/Firefox already being logged into X. On a server or headless OpenClaw install, browser cookies are usually unavailable, so the user must provide X cookie values through environment variables.
+The bundled Bird-compatible searcher requires an authenticated X session. On a local desktop, this usually comes from Chrome, Safari, or Firefox already being logged into X. On macOS, Chrome may ask for Keychain access. Safari cookie access may require Full Disk Access for the terminal/OpenClaw host app. On a server or headless OpenClaw install, browser cookies are usually unavailable, so the user must provide X cookie values through environment variables.
 
-If `bird` is unavailable, tell the user to install the Bird skill:
+If the bundled searcher is unavailable or Node.js is missing, tell the user to install Node.js 22+ or configure an external Bird command:
 
 ```bash
-openclaw skill add steipete/bird
-bird check
+export PERSONAL_NEWSLETTER_BIRD_CMD="bird"
+python3 skills/personal-newsletter/scripts/newsletter.py diagnose
 ```
 
 For server deployments, tell the user to configure X cookies in the OpenClaw process environment:
@@ -114,6 +114,6 @@ User-added accounts are merged on top of built-ins and are never written into th
 
 ## Data Source Notes
 
-The default provider shells out to `bird search "from:handle since:YYYY-MM-DD" -n N`. It first asks for JSON output and falls back to parsing human output when needed. This keeps the skill free to run, but it inherits the reliability limits of X web-cookie access.
+The default provider uses `scripts/vendor/bird-search/bird-search.mjs` with queries such as `from:handle since:YYYY-MM-DD`. It first asks for JSON output and falls back to parsing human output when needed. This keeps the skill free to run, but it inherits the reliability limits of X web-cookie access.
 
 Set `PERSONAL_NEWSLETTER_BIRD_CMD` if `bird` is installed under another command name. Set `PERSONAL_NEWSLETTER_BIRD_MJS` to use a vendored Bird-compatible `.mjs` search wrapper. For headless servers, prefer `AUTH_TOKEN` and `CT0` environment variables over browser-cookie discovery.

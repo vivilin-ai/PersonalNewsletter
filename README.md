@@ -2,18 +2,17 @@
 
 Generate daily newsletters from curated X account pools for AI and US stocks.
 
-The default X provider is `bird`, which uses the user's own browser cookies or configured engine. That keeps the project open-source friendly and avoids requiring a paid X API key. The implementation is intentionally dependency-free Python so it can run inside OpenClaw, Codex, Claude Code, or a local cron job.
+The default X provider is a bundled Bird-compatible searcher, which uses the user's own browser cookies or configured `AUTH_TOKEN` / `CT0` values. That keeps the project open-source friendly and avoids requiring a paid X API key. The Python newsletter pipeline itself is dependency-free; the bundled Bird searcher requires Node.js 22+.
 
 ## Quick Start
 
-Install and authenticate `bird` first:
+Authenticate X first. The easiest local path is to log into `x.com` in Chrome, Safari, or Firefox, then run:
 
 ```bash
-openclaw skill add steipete/bird
-bird check
+python3 skills/personal-newsletter/scripts/newsletter.py diagnose
 ```
 
-Bird must have access to an authenticated X session. On a local desktop this usually means Chrome/Firefox is already logged into X. On a headless server, there is usually no browser session, so `bird check` will fail unless you provide X cookies manually.
+Bird must have access to an authenticated X session. On a local desktop this usually means Chrome/Firefox/Safari is already logged into X. On macOS, Chrome may ask for Keychain access. Safari cookie access may require Full Disk Access for the terminal/OpenClaw host app.
 
 ## Server / OpenClaw Auth
 
@@ -31,6 +30,7 @@ How to get them:
 3. Copy the values of `auth_token` and `ct0`.
 4. Put them into the server's secret manager, service environment, or shell profile as `AUTH_TOKEN` and `CT0`.
 5. Restart OpenClaw and run `bird check`.
+6. Run `python3 skills/personal-newsletter/scripts/newsletter.py diagnose`.
 
 Treat these cookie values like passwords. Do not commit them to git, do not paste them into shared logs, and rotate them by logging out of X if they leak.
 

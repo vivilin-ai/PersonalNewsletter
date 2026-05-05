@@ -28,6 +28,7 @@ from typing import Any
 SCRIPT_DIR = Path(__file__).resolve().parent
 SKILL_DIR = SCRIPT_DIR.parent
 DOMAINS_DIR = SKILL_DIR / "domains"
+VENDORED_BIRD_MJS = SCRIPT_DIR / "vendor" / "bird-search" / "bird-search.mjs"
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "language": "zh-CN",
@@ -294,6 +295,8 @@ def bird_command() -> list[str] | None:
         mjs = os.environ["PERSONAL_NEWSLETTER_BIRD_MJS"]
         if shutil.which("node"):
             return ["node", mjs]
+    if VENDORED_BIRD_MJS.exists() and shutil.which("node"):
+        return ["node", str(VENDORED_BIRD_MJS)]
     if os.environ.get("PERSONAL_NEWSLETTER_BIRD_CMD"):
         return shlex.split(os.environ["PERSONAL_NEWSLETTER_BIRD_CMD"])
     if shutil.which("bird"):

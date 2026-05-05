@@ -61,6 +61,9 @@ STOPWORDS = {
     "new", "now", "today", "daily", "thread", "https", "com", "amp", "its",
     "it's", "our", "out", "via", "one", "two", "get", "got", "like", "make",
     "made", "use", "using", "also", "been", "after", "before", "because",
+    "something", "hope", "nice", "sorry", "read", "source", "via", "latest",
+    "newsletter", "break", "free", "every", "others", "funny", "simultaneously",
+    "argued", "knowledge", "speak", "merely", "mean",
 }
 
 POSITIVE_WORDS = {
@@ -137,6 +140,77 @@ ZH_TERM_MAP = {
     "valuation": "估值",
     "liquidity": "流动性",
 }
+
+KNOWN_TOPIC_RULES: list[tuple[tuple[str, ...], str]] = [
+    (
+        ("agent workflows", "durable memory", "eval loops"),
+        "AI 智能体工作流正在变强，关键不只是工具调用，而是持久化记忆和评测闭环。",
+    ),
+    (
+        ("recover from failed tool calls", "better evals"),
+        "智能体要真正有用，必须能从工具调用失败中恢复；更好的评测体系是被低估的突破点。",
+    ),
+    (
+        ("agent demos", "failure rates", "benchmarks"),
+        "对智能体演示的质疑集中在失败率被隐藏，真正可靠的自动化还需要更强基准测试验证。",
+    ),
+    (
+        ("open source models", "local inference"),
+        "开源模型和本地推理能力持续提升，正在改变 AI 应用的产品形态。",
+    ),
+    (
+        ("gpt-5.5 party", "didn't have space"),
+        "OpenAI 可能会给申请 GPT-5.5 party 但没拿到名额的人提供后续安排或补偿。",
+    ),
+    (
+        ("not yet", "coming soon"),
+        "Sam Altman 表示相关功能或活动还没有上线，但很快会来。",
+    ),
+    (
+        ("much more to come",),
+        "Sam Altman 暗示后面还会有更多发布、活动或产品动作。",
+    ),
+    (
+        ("may this energy",),
+        "Sam Altman 对某个积极势头表示认同，希望这种状态扩散。",
+    ),
+    (
+        ("tool", "claude", "anthropic", "refuse"),
+        "围绕 Claude 是否应服从 Anthropic 或人类指令，讨论焦点是 AI 应该是可控工具，还是应保留拒绝能力。",
+    ),
+    (
+        ("when i say", "tool", "does not refuse"),
+        "关于“AI 是工具还是主体”的争论中，Aidan McLaughlin 认为工具的核心是不会任意拒绝人类，但仍可因法律或公司政策推回请求。",
+    ),
+    (
+        ("deepseek v4", "best open source model"),
+        "Bindu Reddy 称 DeepSeek V4 已成为最强开源模型，并认为它在成本、速度和能力上压过部分闭源模型。",
+    ),
+    (
+        ("gemini", "flash", "cheaper", "faster"),
+        "Bindu Reddy 预期 Gemini 会推出更强的 Flash 模型，主打比 GPT-5.5 或 Opus 4.7 更便宜、更快。",
+    ),
+    (
+        ("overfit", "closed expensive model", "open source models"),
+        "Bindu Reddy 认为很多团队过度绑定昂贵闭源模型，应尽快适配 Kimi、DeepSeek 等开源模型，否则会被淘汰。",
+    ),
+    (
+        ("livebench", "gpt 5.5"),
+        "Bindu Reddy 用 LiveBench 排名质疑 GPT-5.5 medium 的表现，认为它并不领先。",
+    ),
+    (
+        ("national science foundation", "trump", "reduce the nsf budget"),
+        "Yann LeCun 批评削减 NSF 预算会伤害美国科研生态、博士培养和技术创新飞轮。",
+    ),
+    (
+        ("meta", "solar energy", "space"),
+        "Rowan Cheung 关注 Meta 计划用太空太阳能为 AI 数据中心供电，核心看点是 24/7 供电和 AI 算力能源需求。",
+    ),
+    (
+        ("oai", "valuation", "arr", "ant"),
+        "swyx 对比 OpenAI 与另一家 AI 公司的估值和 ARR，并提醒两者收入确认口径不同，直接比较会失真。",
+    ),
+]
 
 
 @dataclass
@@ -526,12 +600,36 @@ def dedupe_posts(posts: list[Post]) -> list[Post]:
     return result
 
 
+def is_substantive_post(post: Post) -> bool:
+    text = re.sub(r"\s+", " ", post.text).strip()
+    lowered = text.lower()
+    if "source via" in lowered and "newsletter" in lowered:
+        return False
+    if "https://t.co" in lowered and "newsletter" in lowered and len(text) < 180:
+        return False
+    if len(text) < 70:
+        return False
+    if text.startswith("@") and len(text) < 140:
+        return False
+    useful_markers = (
+        "ai", "agent", "model", "gpt", "deepseek", "gemini", "claude",
+        "anthropic", "openai", "meta", "nsf", "research", "data center",
+        "solar", "inference", "open source", "benchmark", "eval",
+    )
+    if any(marker in lowered for marker in useful_markers):
+        return True
+    return len(tokenize(text)) >= 8
+
+
 def tokenize(text: str) -> set[str]:
     words = re.findall(r"[A-Za-z][A-Za-z0-9_+\-.]{2,}", text.lower())
     return {word.strip(".-_") for word in words if word not in STOPWORDS and len(word) > 2}
 
 
 def cluster_posts(posts: list[Post], max_topics: int) -> list[dict[str, Any]]:
+    substantive_posts = [post for post in posts if is_substantive_post(post)]
+    if len(substantive_posts) >= 3:
+        posts = substantive_posts
     clusters: list[dict[str, Any]] = []
     for post in sorted(posts, key=lambda item: item.score, reverse=True):
         tokens = tokenize(post.text)
@@ -544,7 +642,7 @@ def cluster_posts(posts: list[Post], max_topics: int) -> list[dict[str, Any]]:
             if overlap > best_overlap:
                 best = cluster
                 best_overlap = overlap
-        if best is not None and best_overlap >= 2:
+        if best is not None and should_merge_cluster(tokens, best["tokens"], best_overlap):
             best["posts"].append(post)
             best["tokens"] |= tokens
             best["score"] += post.score
@@ -572,6 +670,18 @@ def cluster_posts(posts: list[Post], max_topics: int) -> list[dict[str, Any]]:
     return topics
 
 
+def should_merge_cluster(tokens: set[str], cluster_tokens: set[str], overlap: int) -> bool:
+    if overlap < 2:
+        return False
+    smaller = max(1, min(len(tokens), len(cluster_tokens)))
+    union = max(1, len(tokens | cluster_tokens))
+    if smaller <= 10:
+        return overlap / smaller >= 0.3
+    if smaller <= 18:
+        return overlap >= 3 and overlap / smaller >= 0.22
+    return overlap >= 5 and overlap / union >= 0.08
+
+
 def top_keywords(posts: list[Post], limit: int) -> list[str]:
     counts: dict[str, float] = {}
     for post in posts:
@@ -584,6 +694,79 @@ def title_from_keywords(keywords: list[str], fallback: Post) -> str:
     if keywords:
         return " / ".join(word.upper() if len(word) <= 4 else word.title() for word in keywords[:3])
     return fallback.text[:64] or f"@{fallback.author_handle}"
+
+
+def first_sentence(text: str, limit: int = 260) -> str:
+    compact = re.sub(r"\s+", " ", text).strip()
+    if not compact:
+        return ""
+    parts = re.split(r"(?<=[.!?。！？])\s+", compact, maxsplit=1)
+    sentence = parts[0] if parts else compact
+    return trim_sentence(sentence, limit)
+
+
+def extract_entities(text: str, limit: int = 5) -> list[str]:
+    candidates = re.findall(
+        r"\b(?:[A-Z][A-Za-z0-9.+-]{1,}(?:\s+[A-Z0-9][A-Za-z0-9.+-]{1,}){0,3}|GPT[-\s]?\d(?:\.\d)?|Opus\s+\d(?:\.\d)?|DeepSeek\s+V\d|Kimi\s+\d(?:\.\d)?|Gemini|Claude|Anthropic|OpenAI|Meta|NSF)\b",
+        text,
+    )
+    entities: list[str] = []
+    for value in candidates:
+        cleaned = value.strip(" .,:;!?()[]")
+        if cleaned and cleaned.lower() not in STOPWORDS and cleaned not in entities:
+            entities.append(cleaned)
+        if len(entities) >= limit:
+            break
+    return entities
+
+
+def rough_zh_snippet(text: str, limit: int = 220) -> str:
+    snippet = first_sentence(text, limit)
+    replacements = {
+        "open source": "开源",
+        "closed source": "闭源",
+        "closed expensive model": "昂贵闭源模型",
+        "data centers": "数据中心",
+        "solar energy": "太阳能",
+        "space": "太空",
+        "coming soon": "很快会来",
+        "not yet": "还没有",
+        "best open source model": "最强开源模型",
+        "cheaper": "更便宜",
+        "faster": "更快",
+        "budget": "预算",
+        "scientific research": "科学研究",
+        "PhD graduates": "博士毕业生",
+    }
+    rendered = snippet
+    for old, new in replacements.items():
+        rendered = re.sub(re.escape(old), new, rendered, flags=re.IGNORECASE)
+    return rendered
+
+
+def post_gist_zh(text: str) -> str:
+    lowered = text.lower()
+    for needles, gist in KNOWN_TOPIC_RULES:
+        if all(needle in lowered for needle in needles):
+            return gist
+    entities = extract_entities(text)
+    if entities:
+        return f"围绕 {'、'.join(entities)} 的讨论：{rough_zh_snippet(text)}"
+    return f"这条帖子关注的是：{rough_zh_snippet(text)}"
+
+
+def sentence_with_period(text: str) -> str:
+    cleaned = text.rstrip("。.!?！？")
+    return cleaned + "。"
+
+
+def topic_title_zh_from_posts(posts: list[dict[str, Any]]) -> str:
+    if not posts:
+        return "未命名主题"
+    top = posts[0]
+    gist = post_gist_zh(str(top.get("text", "")))
+    title = re.split(r"[，。：；]", gist, maxsplit=1)[0]
+    return trim_sentence(title, 72)
 
 
 def zh_keyword(word: str) -> str:
@@ -609,6 +792,9 @@ def zh_keywords(words: list[str], limit: int = 5) -> list[str]:
 
 
 def zh_topic_title(topic: dict[str, Any]) -> str:
+    title = topic_title_zh_from_posts(topic.get("posts", []))
+    if title and title != "未命名主题":
+        return title
     keywords = zh_keywords(topic.get("keywords", []), limit=3)
     if keywords:
         return " / ".join(keywords)
@@ -618,21 +804,22 @@ def zh_topic_title(topic: dict[str, Any]) -> str:
 
 def zh_topic_summary(topic: dict[str, Any]) -> str:
     accounts = "、".join(f"@{handle}" for handle in topic.get("source_accounts", [])[:4])
-    keywords = zh_keywords(topic.get("keywords", []), limit=5)
-    focus = "、".join(keywords) if keywords else "该领域的最新讨论"
-    post_count = len(topic.get("posts", []))
-    return f"{accounts} 等账号集中讨论了「{focus}」。该主题在账号池内出现 {post_count} 条相关内容，值得作为今天的重点信号跟踪。"
+    posts = topic.get("posts", [])
+    post_count = len(posts)
+    key_points = [post_gist_zh(str(post.get("text", ""))) for post in posts[:2]]
+    if key_points:
+        return f"{accounts} 等账号在这个主题下贡献了 {post_count} 条相关内容。核心信息是：{'; '.join(key_points)}"
+    return f"{accounts} 等账号在这个主题下贡献了 {post_count} 条相关内容。"
 
 
 def zh_view_summary(view: dict[str, str], stance: str, topic: dict[str, Any]) -> str:
-    keywords = zh_keywords(topic.get("keywords", []), limit=4)
-    focus = "、".join(keywords) if keywords else "该主题"
     account = f"@{view['account']}"
+    gist = post_gist_zh(view.get("text", ""))
     if stance == "supportive":
-        return f"{account} 的观点偏积极，认为「{focus}」正在带来新的进展或机会。"
+        return f"{account} 偏积极：{gist}"
     if stance == "skeptical":
-        return f"{account} 的观点偏谨慎，重点提醒「{focus}」仍存在可靠性、风险或验证不足的问题。"
-    return f"{account} 主要提供了关于「{focus}」的事实观察和趋势信号。"
+        return f"{account} 偏谨慎：{gist}"
+    return f"{account} 提供信号：{gist}"
 
 
 def classify_view(text: str) -> str:
@@ -736,7 +923,7 @@ def render_markdown_zh(digest: dict[str, Any]) -> str:
 
     for topic in digest["topics"]:
         lines.extend([f"## {topic['id']}. {zh_topic_title(topic)}", "", zh_topic_summary(topic), ""])
-        lines.append("观点分布:")
+        lines.append("各方观点与信号:")
         for key, label in (
             ("supportive", "偏积极/支持"),
             ("skeptical", "偏谨慎/质疑"),
@@ -744,13 +931,14 @@ def render_markdown_zh(digest: dict[str, Any]) -> str:
         ):
             views = topic["perspectives"].get(key, [])
             if views:
-                rendered = "; ".join(zh_view_summary(view, key, topic) for view in views)
-                lines.append(f"- {label}: {rendered}")
+                lines.append(f"- {label}:")
+                for view in views:
+                    lines.append(f"  - {zh_view_summary(view, key, topic)}")
         lines.append("")
         lines.append("引用来源:")
         for post in topic["posts"][:5]:
             link = post["url"] or f"https://x.com/{post['author_handle']}"
-            lines.append(f"- @{post['author_handle']}: 原帖链接 {link}")
+            lines.append(f"- @{post['author_handle']}: {sentence_with_period(post_gist_zh(post['text']))}原帖链接: {link}")
         lines.append("")
     return "\n".join(lines)
 

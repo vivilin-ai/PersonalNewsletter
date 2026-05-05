@@ -92,11 +92,45 @@ class NewsletterTests(unittest.TestCase):
             markdown = newsletter.render_markdown(digest)
 
             self.assertIn("每日简报", markdown)
-            self.assertIn("观点分布", markdown)
+            self.assertIn("各方观点与信号", markdown)
+            self.assertIn("引用来源", markdown)
             self.assertIn("原帖链接", markdown)
             self.assertIn("智能体", markdown)
             self.assertNotIn("New AI agent workflows are getting much stronger", markdown)
             self.assertNotIn("The risk with agent demos", markdown)
+            self.assertNotIn("该领域的最新讨论", markdown)
+            self.assertNotIn("该主题", markdown)
+
+    def test_cluster_keeps_weakly_related_posts_separate(self):
+        newsletter = load_module()
+        posts = [
+            newsletter.Post(
+                id="1",
+                text=(
+                    "This could have covered the entire budget of the National Science Foundation for 10 years. "
+                    "Reducing the NSF budget would damage American scientific research and PhD graduates."
+                ),
+                url="https://x.com/ylecun/status/1",
+                author_handle="ylecun",
+                score=80,
+            ),
+            newsletter.Post(
+                id="2",
+                text=(
+                    "Meta is planning to power its AI data centers with solar energy beamed from space. "
+                    "If it works, solar farms could produce power 24/7 without batteries."
+                ),
+                url="https://x.com/rowancheung/status/2",
+                author_handle="rowancheung",
+                score=70,
+            ),
+        ]
+
+        topics = newsletter.cluster_posts(posts, max_topics=6)
+
+        self.assertEqual(len(topics), 2)
+        self.assertTrue(any(topic["source_accounts"] == ["ylecun"] for topic in topics))
+        self.assertTrue(any(topic["source_accounts"] == ["rowancheung"] for topic in topics))
 
     def test_cli_run_with_fixture(self):
         newsletter = load_module()

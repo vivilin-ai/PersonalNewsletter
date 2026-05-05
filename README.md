@@ -41,6 +41,12 @@ python3 skills/personal-newsletter/scripts/newsletter.py run ai --no-deliver
 python3 skills/personal-newsletter/scripts/newsletter.py run us-stocks --no-deliver
 ```
 
+Run a specific day:
+
+```bash
+python3 skills/personal-newsletter/scripts/newsletter.py run ai --date 2026-05-04 --no-deliver
+```
+
 The default newsletter language is Chinese. The Markdown output summarizes and translates X content into Chinese by default, while the JSON output keeps original source text for grounding and later refinement by an agent.
 
 Add a personal account:

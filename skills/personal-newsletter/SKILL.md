@@ -46,6 +46,7 @@ Warn the user that `AUTH_TOKEN` and `CT0` are sensitive login credentials and mu
 ```bash
 python3 skills/personal-newsletter/scripts/newsletter.py run ai --no-deliver
 python3 skills/personal-newsletter/scripts/newsletter.py run us-stocks --no-deliver
+python3 skills/personal-newsletter/scripts/newsletter.py run ai --date 2026-05-04 --no-deliver
 ```
 
 Default language is `zh-CN`. In Chinese mode, the generated Markdown must be a Chinese editorial newsletter: summarize and translate X content into Chinese, cite accounts and links, and avoid placing raw English tweet text in the body. Raw source text remains available in the JSON payload for grounding.

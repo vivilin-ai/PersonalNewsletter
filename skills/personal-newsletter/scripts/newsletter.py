@@ -277,6 +277,14 @@ def since_date(lookback_hours: int) -> str:
     return start.date().isoformat()
 
 
+def date_window(target_date: str) -> tuple[str, str]:
+    try:
+        start = dt.date.fromisoformat(target_date)
+    except ValueError as exc:
+        raise RuntimeError(f"Invalid --date value: {target_date}. Use YYYY-MM-DD.") from exc
+    return start.isoformat(), (start + dt.timedelta(days=1)).isoformat()
+
+
 def run_subprocess(cmd: list[str], timeout: int = 40) -> subprocess.CompletedProcess[str]:
     return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
 
@@ -293,15 +301,25 @@ def bird_command() -> list[str] | None:
     return None
 
 
-def fetch_with_bird(accounts: list[Account], lookback_hours: int, count: int) -> list[Post]:
+def fetch_with_bird(
+    accounts: list[Account],
+    lookback_hours: int,
+    count: int,
+    target_date: str | None = None,
+) -> list[Post]:
     command = bird_command()
     if not command:
         raise RuntimeError("bird command not found. Install/authenticate bird or set PERSONAL_NEWSLETTER_BIRD_CMD.")
 
     posts: list[Post] = []
-    start_date = since_date(lookback_hours)
+    if target_date:
+        start_date, end_date = date_window(target_date)
+    else:
+        start_date, end_date = since_date(lookback_hours), ""
     for account in accounts:
         query = f"from:{account.handle} since:{start_date}"
+        if end_date:
+            query += f" until:{end_date}"
         raw = run_bird_search(command, query, count)
         posts.extend(normalize_posts(raw, account))
     return dedupe_posts(posts)
@@ -915,6 +933,7 @@ def cmd_run(args: argparse.Namespace) -> None:
             accounts,
             int(args.lookback_hours or config.get("lookback_hours", 24)),
             int(args.posts_per_account or config.get("posts_per_account", 8)),
+            args.date,
         )
 
     digest = build_digest(domain_id, posts, config, language)
@@ -1073,6 +1092,7 @@ def build_parser() -> argparse.ArgumentParser:
     run = sub.add_parser("run")
     run.add_argument("domain")
     run.add_argument("--language")
+    run.add_argument("--date", help="Fetch a specific UTC date using YYYY-MM-DD, e.g. 2026-05-04.")
     run.add_argument("--lookback-hours", type=int)
     run.add_argument("--posts-per-account", type=int)
     run.add_argument("--input-json", help="Use a fixture JSON file instead of calling bird.")

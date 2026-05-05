@@ -113,6 +113,11 @@ class NewsletterTests(unittest.TestCase):
             self.assertTrue(Path(payload["json_path"]).exists())
             self.assertTrue(Path(payload["markdown_path"]).exists())
 
+    def test_date_window(self):
+        newsletter = load_module()
+
+        self.assertEqual(newsletter.date_window("2026-05-04"), ("2026-05-04", "2026-05-05"))
+
 
 if __name__ == "__main__":
     unittest.main()

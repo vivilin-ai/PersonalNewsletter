@@ -15,6 +15,12 @@ Preview without delivery:
 python3 skills/personal-newsletter/scripts/newsletter.py run ai --no-deliver
 ```
 
+Specific day:
+
+```bash
+python3 skills/personal-newsletter/scripts/newsletter.py run ai --date 2026-05-04 --no-deliver
+```
+
 Common configuration:
 
 ```bash

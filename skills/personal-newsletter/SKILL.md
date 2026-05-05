@@ -51,11 +51,34 @@ python3 skills/personal-newsletter/scripts/newsletter.py run ai --date 2026-05-0
 
 Default language is `zh-CN`. In Chinese mode, the generated Markdown must be a Chinese editorial newsletter: summarize and translate X content into Chinese, cite accounts and links, and avoid placing raw English tweet text in the body. Raw source text remains available in the JSON payload for grounding.
 
+The generator uses a two-stage pipeline:
+
+1. Build structured topic JSON from account-pool posts.
+2. Render the structured topics into Markdown.
+
+Each topic includes:
+
+- `analysis`: Chinese title, summary, key points, and stance notes.
+- `tags`: `companies`, `models`, `people`, and `topics`.
+- `quality`: topic-level signal metadata.
+- `posts`: original source posts and URLs for grounding.
+
+If the account pool has too little substantive activity, the skill should emit a low-signal issue instead of inventing generic热点.
+
 Use `--language en` only when the user explicitly asks for English.
 
 3. Review the generated Markdown path printed by the command. If the user wants a richer final issue, use the JSON payload path from the command output and synthesize a polished Chinese newsletter, translating source posts into Chinese while preserving source account citations and original links.
 
-4. Deliver when configured:
+4. Summarize historical trends:
+
+```bash
+python3 skills/personal-newsletter/scripts/newsletter.py trend ai --days 7
+python3 skills/personal-newsletter/scripts/newsletter.py history ai --days 30 --markdown
+```
+
+Trend/history commands read prior `.personal-newsletter/runs/*.json` files and summarize recurring tags, models, companies, accounts, and high-signal topics.
+
+5. Deliver when configured:
 
 ```bash
 python3 skills/personal-newsletter/scripts/newsletter.py run ai
@@ -71,6 +94,7 @@ Useful commands:
 python3 skills/personal-newsletter/scripts/newsletter.py list-domains
 python3 skills/personal-newsletter/scripts/newsletter.py list-accounts ai
 python3 skills/personal-newsletter/scripts/newsletter.py add-account ai handle --label "Display Name" --tier signal
+python3 skills/personal-newsletter/scripts/newsletter.py trend ai --days 7
 python3 skills/personal-newsletter/scripts/newsletter.py config set language zh-CN
 python3 skills/personal-newsletter/scripts/newsletter.py config set delivery.kind webhook
 python3 skills/personal-newsletter/scripts/newsletter.py config set delivery.url https://example.com/webhook

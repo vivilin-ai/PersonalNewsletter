@@ -64,6 +64,11 @@ class NewsletterTests(unittest.TestCase):
             self.assertEqual(digest["stats"]["posts"], 4)
             self.assertTrue(digest["topics"])
             self.assertTrue(any("karpathy" in topic["source_accounts"] for topic in digest["topics"]))
+            topic = digest["topics"][0]
+            self.assertIn("analysis", topic)
+            self.assertIn("tags", topic)
+            self.assertIn("topics", topic["tags"])
+            self.assertIn("quality", topic)
 
     def test_render_markdown_contains_source_links(self):
         newsletter = load_module()
@@ -131,6 +136,48 @@ class NewsletterTests(unittest.TestCase):
         self.assertEqual(len(topics), 2)
         self.assertTrue(any(topic["source_accounts"] == ["ylecun"] for topic in topics))
         self.assertTrue(any(topic["source_accounts"] == ["rowancheung"] for topic in topics))
+
+    def test_low_signal_digest_does_not_force_topics(self):
+        newsletter = load_module()
+        with temp_home():
+            config = newsletter.load_config()
+            posts = [
+                newsletter.Post(
+                    id="1",
+                    text="nice!",
+                    url="https://x.com/example/status/1",
+                    author_handle="example",
+                    score=10,
+                )
+            ]
+
+            digest = newsletter.build_digest("ai", posts, config, "zh-CN")
+            markdown = newsletter.render_markdown(digest)
+
+            self.assertEqual(digest["quality"]["status"], "low_signal")
+            self.assertEqual(digest["topics"], [])
+            self.assertIn("未强行生成热点", markdown)
+
+    def test_trend_reads_recent_structured_runs(self):
+        newsletter = load_module()
+        with temp_home() as home:
+            config = newsletter.load_config()
+            accounts = newsletter.merged_accounts("ai", config)
+            fixture = ROOT / "tests" / "fixtures" / "sample_posts.json"
+            posts = newsletter.fixture_posts(fixture, accounts)
+            digest = newsletter.build_digest("ai", posts, config, "zh-CN")
+            today = newsletter.dt.date.today()
+            runs = home / "runs"
+            newsletter.write_json(runs / f"{today.isoformat()}-ai.json", digest)
+            newsletter.write_json(runs / f"{(today - newsletter.dt.timedelta(days=1)).isoformat()}-ai.json", digest)
+
+            report = newsletter.build_trend_report("ai", 7)
+            markdown = newsletter.render_trend_markdown(report)
+
+            self.assertEqual(report["runs"], 2)
+            self.assertGreater(report["stats"]["topics"], 0)
+            self.assertIn("高频标签", markdown)
+            self.assertIn("agentic-ai", markdown)
 
     def test_cli_run_with_fixture(self):
         newsletter = load_module()

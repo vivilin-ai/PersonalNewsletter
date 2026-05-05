@@ -20,6 +20,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -36,6 +37,10 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "lookback_hours": 24,
     "posts_per_account": 8,
     "max_topics": 6,
+    "quality": {
+        "min_substantive_posts": 2,
+        "min_topic_score": 18,
+    },
     "delivery": {
         "kind": "none",
         "url": "",
@@ -210,6 +215,54 @@ KNOWN_TOPIC_RULES: list[tuple[tuple[str, ...], str]] = [
         ("oai", "valuation", "arr", "ant"),
         "swyx 对比 OpenAI 与另一家 AI 公司的估值和 ARR，并提醒两者收入确认口径不同，直接比较会失真。",
     ),
+]
+
+COMPANY_PATTERNS: list[tuple[str, str]] = [
+    (r"\bopenai\b|\boai\b", "openai"),
+    (r"\banthropic\b", "anthropic"),
+    (r"\bgoogle\b|\bgoogle deepmind\b", "google-deepmind"),
+    (r"\bdeepmind\b", "google-deepmind"),
+    (r"\bmeta\b|\bfacebook\b", "meta"),
+    (r"\bxai\b|\bx\.ai\b|\bx-ai\b", "x-ai"),
+    (r"\bdeepseek\b", "deepseek"),
+    (r"\bmoonshot\b|\bkimi\b", "moonshot-ai"),
+    (r"\balibaba\b|\bqwen\b", "alibaba"),
+    (r"\bmistral\b", "mistral-ai"),
+    (r"\bnvidia\b", "nvidia"),
+    (r"\bmicrosoft\b|\bgithub\b|\bcopilot\b", "microsoft"),
+    (r"\bcursor\b", "cursor-ai"),
+    (r"\blangchain\b", "langchain-ai"),
+    (r"\bhugging ?face\b", "hugging-face"),
+]
+
+MODEL_PATTERNS: list[tuple[str, str]] = [
+    (r"\bgpt[-\s]?5\.5\b", "gpt-5.5"),
+    (r"\bgpt[-\s]?5\.4\b", "gpt-5.4"),
+    (r"\bgpt[-\s]?4o\b", "gpt-4o"),
+    (r"\bclaude opus 4\.7\b|\bopus 4\.7\b", "claude-opus-4.7"),
+    (r"\bclaude\b", "claude"),
+    (r"\bgemini\b", "gemini"),
+    (r"\bgemini.*flash|\bflash model\b", "gemini-flash"),
+    (r"\bdeepseek v4\b|\bdeepseek-v4\b", "deepseek-v4"),
+    (r"\bkimi k2\.6\b|\bkimi\b", "kimi-k2.6"),
+    (r"\bqwen[-\s]?\d|\bqwen\b", "qwen"),
+    (r"\bllama[-\s]?\d|\bllama\b", "llama"),
+    (r"\bgemma[-\s]?\d|\bgemma\b", "gemma"),
+]
+
+TOPIC_PATTERNS: list[tuple[str, str]] = [
+    (r"\bagent|agentic|tool call|tool-use|workflow|automation\b", "agentic-ai"),
+    (r"\beval|benchmark|livebench|swe-bench|terminal-bench|leaderboard\b", "benchmarking"),
+    (r"\bopen source|open-source|open weight|open-weight|local inference\b", "open-models"),
+    (r"\binference|latency|token|cost|cheaper|faster|pricing\b", "cost-efficiency"),
+    (r"\bcontext window|long context|1m context|million token\b", "long-context"),
+    (r"\bmemory|durable memory|persistent context\b", "memory"),
+    (r"\bdata center|energy|solar|power|gpu|tpu|blackwell\b", "ai-infrastructure"),
+    (r"\bsafety|refuse|policy|law|alignment\b", "model-safety"),
+    (r"\bresearch|nsf|science|phd|academic\b", "research-policy"),
+    (r"\bvaluation|arr|revenue|earnings|stock|market\b", "business"),
+    (r"\bmultimodal|vision|image|audio|video\b", "multimodality"),
+    (r"\bcoding|code|codex|copilot|software\b", "coding"),
 ]
 
 
@@ -655,16 +708,26 @@ def cluster_posts(posts: list[Post], max_topics: int) -> list[dict[str, Any]]:
         top_posts = sorted(cluster["posts"], key=lambda item: item.score, reverse=True)
         topic_tokens = top_keywords(top_posts, limit=5)
         perspectives = build_perspectives(top_posts)
+        post_dicts = [post_to_dict(post) for post in top_posts[:8]]
+        analysis = analyze_topic(top_posts, perspectives)
+        tags = extract_topic_tags(top_posts)
         topics.append(
             {
                 "id": f"T{index}",
-                "title": title_from_keywords(topic_tokens, top_posts[0]),
+                "title": analysis["title_zh"],
                 "keywords": topic_tokens,
                 "score": round(cluster["score"], 2),
                 "source_accounts": sorted({post.author_handle for post in top_posts}),
-                "posts": [post_to_dict(post) for post in top_posts[:8]],
+                "posts": post_dicts,
                 "perspectives": perspectives,
-                "summary_seed": summarize_seed(top_posts),
+                "analysis": analysis,
+                "tags": tags,
+                "companies": tags["companies"],
+                "models": tags["models"],
+                "people": tags["people"],
+                "topics": tags["topics"],
+                "summary_seed": analysis["summary_zh"],
+                "quality": topic_quality(top_posts, cluster["score"], tags),
             }
         )
     return topics
@@ -769,6 +832,125 @@ def topic_title_zh_from_posts(posts: list[dict[str, Any]]) -> str:
     return trim_sentence(title, 72)
 
 
+def normalize_tag(value: str) -> str:
+    return re.sub(r"[^a-z0-9.+-]+", "-", value.lower()).strip("-")
+
+
+def ordered_unique(values: list[str], limit: int | None = None) -> list[str]:
+    result: list[str] = []
+    for value in values:
+        normalized = normalize_tag(value)
+        if normalized and normalized not in result:
+            result.append(normalized)
+        if limit and len(result) >= limit:
+            break
+    return result
+
+
+def regex_tags(text: str, patterns: list[tuple[str, str]]) -> list[str]:
+    found: list[str] = []
+    for pattern, tag in patterns:
+        if re.search(pattern, text, flags=re.IGNORECASE):
+            found.append(tag)
+    return found
+
+
+def extract_topic_tags(posts: list[Post]) -> dict[str, list[str]]:
+    text = "\n".join(post.text for post in posts)
+    people = [post.author_handle for post in posts]
+    for entity in extract_entities(text, limit=12):
+        lowered = entity.lower().replace(" ", "_")
+        if lowered in {"sam_altman", "sama"}:
+            people.append("sama")
+        elif lowered in {"yann_lecun", "ylecun"}:
+            people.append("ylecun")
+    return {
+        "companies": ordered_unique(regex_tags(text, COMPANY_PATTERNS), limit=10),
+        "models": ordered_unique(regex_tags(text, MODEL_PATTERNS), limit=10),
+        "people": ordered_unique(people, limit=10),
+        "topics": ordered_unique(regex_tags(text, TOPIC_PATTERNS), limit=10),
+    }
+
+
+def analyze_topic(posts: list[Post], perspectives: dict[str, list[dict[str, str]]]) -> dict[str, Any]:
+    gists = [post_gist_zh(post.text) for post in posts]
+    key_points = ordered_text(gists, limit=3)
+    title = re.split(r"[，。：；]", key_points[0], maxsplit=1)[0] if key_points else "未命名主题"
+    stance_notes = {
+        "supportive": [zh_view_summary(view, "supportive", {}) for view in perspectives.get("supportive", [])],
+        "skeptical": [zh_view_summary(view, "skeptical", {}) for view in perspectives.get("skeptical", [])],
+        "observational": [zh_view_summary(view, "observational", {}) for view in perspectives.get("observational", [])],
+    }
+    return {
+        "title_zh": trim_sentence(title, 72),
+        "summary_zh": build_topic_summary_zh(posts, key_points),
+        "key_points_zh": key_points,
+        "stance_notes_zh": stance_notes,
+    }
+
+
+def ordered_text(values: list[str], limit: int) -> list[str]:
+    result: list[str] = []
+    for value in values:
+        cleaned = value.strip()
+        if cleaned and cleaned not in result:
+            result.append(cleaned)
+        if len(result) >= limit:
+            break
+    return result
+
+
+def build_topic_summary_zh(posts: list[Post], key_points: list[str]) -> str:
+    accounts = "、".join(f"@{post.author_handle}" for post in posts[:4])
+    if not key_points:
+        return f"{accounts} 等账号贡献了 {len(posts)} 条相关内容。"
+    return f"{accounts} 等账号贡献了 {len(posts)} 条相关内容。核心信息是：{'; '.join(key_points[:2])}"
+
+
+def topic_quality(posts: list[Post], score: float, tags: dict[str, list[str]]) -> dict[str, Any]:
+    tag_count = sum(len(values) for values in tags.values())
+    substantive_count = sum(1 for post in posts if is_substantive_post(post))
+    if len(posts) >= 2:
+        level = "high"
+    elif score >= 18 and tag_count >= 2 and substantive_count >= 1:
+        level = "medium"
+    else:
+        level = "low"
+    return {
+        "level": level,
+        "post_count": len(posts),
+        "substantive_posts": substantive_count,
+        "tag_count": tag_count,
+        "score": round(score, 2),
+    }
+
+
+def apply_quality_gate(topics: list[dict[str, Any]], posts: list[Post], config: dict[str, Any]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    quality_config = config.get("quality", {})
+    min_substantive_posts = int(quality_config.get("min_substantive_posts", 2))
+    min_topic_score = float(quality_config.get("min_topic_score", 18))
+    substantive_posts = [post for post in posts if is_substantive_post(post)]
+    accepted = [
+        topic
+        for topic in topics
+        if topic["quality"]["level"] != "low" and float(topic.get("score", 0)) >= min_topic_score
+    ]
+    is_low_signal = len(substantive_posts) < min_substantive_posts or not accepted
+    report = {
+        "status": "low_signal" if is_low_signal else "ok",
+        "substantive_posts": len(substantive_posts),
+        "min_substantive_posts": min_substantive_posts,
+        "min_topic_score": min_topic_score,
+        "rejected_topics": len(topics) - len(accepted),
+        "reason": "",
+    }
+    if len(substantive_posts) < min_substantive_posts:
+        report["reason"] = "账号池内有效信息不足，未强行生成热点。"
+    elif not accepted:
+        report["reason"] = "候选主题质量分不足，未强行生成热点。"
+    return ([] if is_low_signal else accepted), report
+
+
 def zh_keyword(word: str) -> str:
     normalized = word.lower().strip(".-_")
     if normalized in ZH_TERM_MAP:
@@ -792,6 +974,9 @@ def zh_keywords(words: list[str], limit: int = 5) -> list[str]:
 
 
 def zh_topic_title(topic: dict[str, Any]) -> str:
+    analysis_title = topic.get("analysis", {}).get("title_zh")
+    if analysis_title:
+        return str(analysis_title)
     title = topic_title_zh_from_posts(topic.get("posts", []))
     if title and title != "未命名主题":
         return title
@@ -803,6 +988,9 @@ def zh_topic_title(topic: dict[str, Any]) -> str:
 
 
 def zh_topic_summary(topic: dict[str, Any]) -> str:
+    summary = topic.get("analysis", {}).get("summary_zh")
+    if summary:
+        return str(summary)
     accounts = "、".join(f"@{handle}" for handle in topic.get("source_accounts", [])[:4])
     posts = topic.get("posts", [])
     post_count = len(posts)
@@ -876,9 +1064,10 @@ def post_to_dict(post: Post) -> dict[str, Any]:
 
 def build_digest(domain_id: str, posts: list[Post], config: dict[str, Any], language: str) -> dict[str, Any]:
     domain = load_domain(domain_id)
-    topics = cluster_posts(posts, int(config.get("max_topics", 6)))
+    candidate_topics = cluster_posts(posts, int(config.get("max_topics", 6)))
+    topics, quality = apply_quality_gate(candidate_topics, posts, config)
     return {
-        "schema_version": "0.1",
+        "schema_version": "0.2",
         "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(),
         "domain": {
             "id": normalize_domain(domain_id),
@@ -891,6 +1080,8 @@ def build_digest(domain_id: str, posts: list[Post], config: dict[str, Any], lang
             "topics": len(topics),
             "accounts": len({post.author_handle.lower() for post in posts}),
         },
+        "quality": quality,
+        "candidate_topics": len(candidate_topics),
         "topics": topics,
     }
 
@@ -912,7 +1103,8 @@ def render_markdown_zh(digest: dict[str, Any]) -> str:
         "",
     ]
     if not digest["topics"]:
-        lines.extend(["今天账号池内没有足够的新内容生成热点。", ""])
+        reason = digest.get("quality", {}).get("reason") or "今天账号池内没有足够的新内容生成热点。"
+        lines.extend([str(reason), ""])
         return "\n".join(lines)
 
     lines.append("## 今日要点")
@@ -923,6 +1115,19 @@ def render_markdown_zh(digest: dict[str, Any]) -> str:
 
     for topic in digest["topics"]:
         lines.extend([f"## {topic['id']}. {zh_topic_title(topic)}", "", zh_topic_summary(topic), ""])
+        tags = topic.get("tags", {})
+        tag_parts = []
+        for key, label in (
+            ("companies", "公司"),
+            ("models", "模型"),
+            ("people", "人物/账号"),
+            ("topics", "主题标签"),
+        ):
+            values = tags.get(key, [])
+            if values:
+                tag_parts.append(f"{label}: {', '.join(values)}")
+        if tag_parts:
+            lines.extend(["标签: " + " | ".join(tag_parts), ""])
         lines.append("各方观点与信号:")
         for key, label in (
             ("supportive", "偏积极/支持"),
@@ -995,6 +1200,148 @@ def write_outputs(domain_id: str, digest: dict[str, Any], markdown: str) -> tupl
     md_path.parent.mkdir(parents=True, exist_ok=True)
     md_path.write_text(markdown, encoding="utf-8")
     return json_path, md_path
+
+
+def trend_output_paths(domain_id: str, days: int) -> tuple[Path, Path]:
+    stamp = dt.datetime.now().strftime("%Y-%m-%d")
+    out_dir = config_home() / "trends"
+    return out_dir / f"{stamp}-{domain_id}-{days}d.json", out_dir / f"{stamp}-{domain_id}-{days}d.md"
+
+
+def write_trend_outputs(domain_id: str, days: int, report: dict[str, Any], markdown: str) -> tuple[Path, Path]:
+    json_path, md_path = trend_output_paths(domain_id, days)
+    write_json(json_path, report)
+    md_path.parent.mkdir(parents=True, exist_ok=True)
+    md_path.write_text(markdown, encoding="utf-8")
+    return json_path, md_path
+
+
+def digest_date(path: Path, digest: dict[str, Any]) -> dt.date | None:
+    match = re.match(r"(\d{4}-\d{2}-\d{2})-", path.name)
+    if match:
+        return dt.date.fromisoformat(match.group(1))
+    generated_at = str(digest.get("generated_at") or "")
+    if generated_at[:10]:
+        try:
+            return dt.date.fromisoformat(generated_at[:10])
+        except ValueError:
+            return None
+    return None
+
+
+def load_recent_digests(domain_id: str, days: int) -> list[tuple[Path, dict[str, Any]]]:
+    runs_dir = config_home() / "runs"
+    if not runs_dir.exists():
+        return []
+    cutoff = dt.date.today() - dt.timedelta(days=days - 1)
+    result: list[tuple[Path, dict[str, Any]]] = []
+    for path in sorted(runs_dir.glob(f"*-{domain_id}.json")):
+        try:
+            digest = load_json(path)
+        except (json.JSONDecodeError, OSError):
+            continue
+        date = digest_date(path, digest)
+        if date and date >= cutoff and digest.get("domain", {}).get("id") == domain_id:
+            result.append((path, digest))
+    return result
+
+
+def build_trend_report(domain_id: str, days: int) -> dict[str, Any]:
+    digests = load_recent_digests(domain_id, days)
+    topic_counter: Counter[str] = Counter()
+    company_counter: Counter[str] = Counter()
+    model_counter: Counter[str] = Counter()
+    people_counter: Counter[str] = Counter()
+    account_counter: Counter[str] = Counter()
+    titles: list[dict[str, Any]] = []
+    total_posts = 0
+    for path, digest in digests:
+        total_posts += int(digest.get("stats", {}).get("posts", 0))
+        for topic in digest.get("topics", []):
+            title = zh_topic_title(topic)
+            titles.append(
+                {
+                    "date": path.name[:10],
+                    "title": title,
+                    "score": topic.get("score", 0),
+                    "accounts": topic.get("source_accounts", []),
+                    "tags": topic.get("tags", {}),
+                }
+            )
+            tags = topic.get("tags", {})
+            topic_counter.update(tags.get("topics", []))
+            company_counter.update(tags.get("companies", []))
+            model_counter.update(tags.get("models", []))
+            people_counter.update(tags.get("people", []))
+            account_counter.update(topic.get("source_accounts", []))
+    return {
+        "schema_version": "0.2",
+        "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+        "domain": normalize_domain(domain_id),
+        "days": days,
+        "runs": len(digests),
+        "stats": {
+            "posts": total_posts,
+            "topics": len(titles),
+        },
+        "top_tags": {
+            "topics": topic_counter.most_common(12),
+            "companies": company_counter.most_common(12),
+            "models": model_counter.most_common(12),
+            "people": people_counter.most_common(12),
+            "accounts": account_counter.most_common(12),
+        },
+        "recent_topics": sorted(titles, key=lambda item: float(item.get("score", 0)), reverse=True)[:20],
+    }
+
+
+def render_trend_markdown(report: dict[str, Any]) -> str:
+    domain = report["domain"]
+    days = report["days"]
+    lines = [
+        f"# {domain} 最近 {days} 天趋势",
+        "",
+        f"共读取 {report['runs']} 次历史运行，覆盖 {report['stats']['posts']} 条帖子、{report['stats']['topics']} 个主题。",
+        "",
+    ]
+    if not report["runs"] or not report["recent_topics"]:
+        lines.extend(["历史数据不足，暂时无法生成趋势总结。请先运行几天 newsletter。", ""])
+        return "\n".join(lines)
+
+    lines.append("## 高频标签")
+    for key, label in (
+        ("topics", "主题"),
+        ("companies", "公司"),
+        ("models", "模型"),
+        ("people", "人物/账号"),
+        ("accounts", "引用账号"),
+    ):
+        values = report["top_tags"].get(key, [])
+        if values:
+            rendered = ", ".join(f"{tag}({count})" for tag, count in values[:8])
+            lines.append(f"- {label}: {rendered}")
+    lines.append("")
+
+    lines.append("## 主要趋势")
+    top_topic_tags = [tag for tag, _ in report["top_tags"].get("topics", [])[:5]]
+    top_models = [tag for tag, _ in report["top_tags"].get("models", [])[:5]]
+    top_companies = [tag for tag, _ in report["top_tags"].get("companies", [])[:5]]
+    if top_topic_tags:
+        lines.append(f"- 讨论主轴集中在 {', '.join(top_topic_tags)}。")
+    if top_models:
+        lines.append(f"- 被反复提及的模型包括 {', '.join(top_models)}。")
+    if top_companies:
+        lines.append(f"- 公司/组织层面的高频对象包括 {', '.join(top_companies)}。")
+    if not (top_topic_tags or top_models or top_companies):
+        lines.append("- 历史主题较分散，尚未形成稳定趋势。")
+    lines.append("")
+
+    lines.append("## 高信号历史主题")
+    for item in report["recent_topics"][:10]:
+        accounts = ", ".join(f"@{handle}" for handle in item.get("accounts", [])[:4])
+        lines.append(f"- {item['date']} {item['title']} | {accounts}")
+    lines.append("")
+    return "\n".join(lines)
 
 
 def deliver(markdown: str, subject: str, config: dict[str, Any]) -> dict[str, Any]:
@@ -1153,6 +1500,32 @@ def cmd_run(args: argparse.Namespace) -> None:
     )
 
 
+def cmd_trend(args: argparse.Namespace) -> None:
+    domain_id = normalize_domain(args.domain)
+    days = int(args.days)
+    report = build_trend_report(domain_id, days)
+    markdown = render_trend_markdown(report)
+    json_path, md_path = write_trend_outputs(domain_id, days, report, markdown)
+    if args.markdown:
+        print(markdown)
+        return
+    print(
+        json.dumps(
+            {
+                "status": "ok",
+                "domain": domain_id,
+                "days": days,
+                "runs": report["runs"],
+                "topics": report["stats"]["topics"],
+                "json_path": str(json_path),
+                "markdown_path": str(md_path),
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
+
+
 def cmd_list_domains(_: argparse.Namespace) -> None:
     domains = []
     for path in sorted(DOMAINS_DIR.glob("*.json")):
@@ -1289,6 +1662,18 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--input-json", help="Use a fixture JSON file instead of calling bird.")
     run.add_argument("--no-deliver", action="store_true")
     run.set_defaults(func=cmd_run)
+
+    trend = sub.add_parser("trend")
+    trend.add_argument("domain")
+    trend.add_argument("--days", type=int, default=7, choices=[7, 30])
+    trend.add_argument("--markdown", action="store_true", help="Print the trend Markdown instead of the output paths.")
+    trend.set_defaults(func=cmd_trend)
+
+    history = sub.add_parser("history")
+    history.add_argument("domain")
+    history.add_argument("--days", type=int, default=30, choices=[7, 30])
+    history.add_argument("--markdown", action="store_true", help="Print the history Markdown instead of the output paths.")
+    history.set_defaults(func=cmd_trend)
 
     list_domains = sub.add_parser("list-domains")
     list_domains.set_defaults(func=cmd_list_domains)

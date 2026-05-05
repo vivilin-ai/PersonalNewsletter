@@ -65,6 +65,12 @@ Each topic includes:
 
 If the account pool has too little substantive activity, the skill should emit a low-signal issue instead of inventing generic热点.
 
+Chinese newsletter rendering should be concise:
+
+- If a topic has only one source account, keep it only when the post feedback is high enough. By default, single-account topics need more than 100 replies/quote replies.
+- If one account posts multiple times in the same topic, merge those posts into one account-level viewpoint instead of listing repeated viewpoints.
+- Do not repeat the same post content in the summary, viewpoint section, and source section. Prefer a compact heading, one synthesized viewpoint when needed, optional tags for multi-post topics, and a compact source citation.
+
 Use `--language en` only when the user explicitly asks for English.
 
 3. Review the generated Markdown path printed by the command. If the user wants a richer final issue, use the JSON payload path from the command output and synthesize a polished Chinese newsletter, translating source posts into Chinese while preserving source account citations and original links.

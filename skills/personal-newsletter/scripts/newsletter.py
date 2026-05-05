@@ -40,6 +40,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "quality": {
         "min_substantive_posts": 2,
         "min_topic_score": 18,
+        "min_single_account_replies": 100,
     },
     "delivery": {
         "kind": "none",
@@ -901,15 +902,39 @@ def ordered_text(values: list[str], limit: int) -> list[str]:
 
 
 def build_topic_summary_zh(posts: list[Post], key_points: list[str]) -> str:
-    accounts = "、".join(f"@{post.author_handle}" for post in posts[:4])
+    accounts = "、".join(f"@{handle}" for handle in unique_post_handles(posts)[:4])
     if not key_points:
         return f"{accounts} 等账号贡献了 {len(posts)} 条相关内容。"
     return f"{accounts} 等账号贡献了 {len(posts)} 条相关内容。核心信息是：{'; '.join(key_points[:2])}"
 
 
+def unique_post_handles(posts: list[Post]) -> list[str]:
+    handles: list[str] = []
+    for post in posts:
+        if post.author_handle not in handles:
+            handles.append(post.author_handle)
+    return handles
+
+
+def engagement_feedback(engagement: dict[str, Any]) -> int:
+    return int(engagement.get("replies") or 0) + int(engagement.get("quotes") or 0)
+
+
+def topic_max_feedback(topic: dict[str, Any]) -> int:
+    return max((engagement_feedback(post.get("engagement", {})) for post in topic.get("posts", [])), default=0)
+
+
+def is_single_account_low_feedback_topic(topic: dict[str, Any], threshold: int) -> bool:
+    accounts = set(topic.get("source_accounts", []))
+    if len(accounts) != 1:
+        return False
+    return topic_max_feedback(topic) <= threshold
+
+
 def topic_quality(posts: list[Post], score: float, tags: dict[str, list[str]]) -> dict[str, Any]:
     tag_count = sum(len(values) for values in tags.values())
     substantive_count = sum(1 for post in posts if is_substantive_post(post))
+    max_feedback = max((engagement_feedback(post.engagement) for post in posts), default=0)
     if len(posts) >= 2:
         level = "high"
     elif score >= 18 and tag_count >= 2 and substantive_count >= 1:
@@ -922,6 +947,7 @@ def topic_quality(posts: list[Post], score: float, tags: dict[str, list[str]]) -
         "substantive_posts": substantive_count,
         "tag_count": tag_count,
         "score": round(score, 2),
+        "max_feedback": max_feedback,
     }
 
 
@@ -929,11 +955,13 @@ def apply_quality_gate(topics: list[dict[str, Any]], posts: list[Post], config: 
     quality_config = config.get("quality", {})
     min_substantive_posts = int(quality_config.get("min_substantive_posts", 2))
     min_topic_score = float(quality_config.get("min_topic_score", 18))
+    min_single_account_replies = int(quality_config.get("min_single_account_replies", 100))
     substantive_posts = [post for post in posts if is_substantive_post(post)]
     accepted = [
         topic
         for topic in topics
         if topic["quality"]["level"] != "low" and float(topic.get("score", 0)) >= min_topic_score
+        and not is_single_account_low_feedback_topic(topic, min_single_account_replies)
     ]
     is_low_signal = len(substantive_posts) < min_substantive_posts or not accepted
     report = {
@@ -941,6 +969,7 @@ def apply_quality_gate(topics: list[dict[str, Any]], posts: list[Post], config: 
         "substantive_posts": len(substantive_posts),
         "min_substantive_posts": min_substantive_posts,
         "min_topic_score": min_topic_score,
+        "min_single_account_replies": min_single_account_replies,
         "rejected_topics": len(topics) - len(accepted),
         "reason": "",
     }
@@ -1090,7 +1119,7 @@ def render_markdown(digest: dict[str, Any]) -> str:
     language = digest.get("language", "zh-CN").lower()
     if language.startswith("en"):
         return render_markdown_en(digest)
-    return render_markdown_zh(digest)
+    return render_markdown_zh_compact(digest)
 
 
 def render_markdown_zh(digest: dict[str, Any]) -> str:
@@ -1145,6 +1174,116 @@ def render_markdown_zh(digest: dict[str, Any]) -> str:
             link = post["url"] or f"https://x.com/{post['author_handle']}"
             lines.append(f"- @{post['author_handle']}: {sentence_with_period(post_gist_zh(post['text']))}原帖链接: {link}")
         lines.append("")
+    return "\n".join(lines)
+
+
+def compact_topic_title_zh(topic: dict[str, Any]) -> str:
+    posts = topic.get("posts", [])
+    if len(posts) == 1 and len(topic.get("source_accounts", [])) == 1:
+        post = posts[0]
+        label = str(post.get("author_label") or post.get("author_handle") or "").strip()
+        gist = post_gist_zh(str(post.get("text", ""))).rstrip("。")
+        if label and not gist.lower().startswith(label.lower()):
+            return f"{label}表示{gist}"
+    return zh_topic_title(topic)
+
+
+def display_author(post: dict[str, Any]) -> str:
+    return str(post.get("author_label") or post.get("author_handle") or "").strip()
+
+
+def concise_gist_for_author(text: str, author: str, index: int) -> str:
+    gist = post_gist_zh(text).rstrip("。")
+    if index == 0 or not author:
+        return gist
+    if gist.startswith(author):
+        return "他" + gist[len(author):].lstrip()
+    return gist
+
+
+def compact_account_views(topic: dict[str, Any]) -> list[str]:
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for post in topic.get("posts", []):
+        grouped.setdefault(str(post.get("author_handle")), []).append(post)
+
+    lines: list[str] = []
+    for handle, posts in grouped.items():
+        author = display_author(posts[0])
+        gists = [
+            concise_gist_for_author(str(post.get("text", "")), author, index)
+            for index, post in enumerate(posts)
+        ]
+        summary = "；".join(ordered_text(gists, limit=5))
+        prefix = author if author else f"@{handle}"
+        if len(grouped) == 1:
+            lines.append(sentence_with_period(summary))
+        else:
+            lines.append(f"- @{handle}: {sentence_with_period(summary)}")
+    return lines
+
+
+def compact_source_citation(topic: dict[str, Any]) -> str:
+    by_handle: dict[str, list[str]] = {}
+    for post in topic.get("posts", []):
+        handle = str(post.get("author_handle"))
+        link = str(post.get("url") or f"https://x.com/{handle}")
+        if link not in by_handle.setdefault(handle, []):
+            by_handle[handle].append(link)
+
+    rendered: list[str] = []
+    for handle, links in by_handle.items():
+        if len(links) == 1:
+            rendered.append(f"[@{handle}]({links[0]})")
+        else:
+            link_refs = "、".join(f"[{index + 1}]({link})" for index, link in enumerate(links))
+            rendered.append(f"@{handle}（{len(links)}条：{link_refs}）")
+    return "引用来源：" + "；".join(rendered)
+
+
+def compact_tag_line(topic: dict[str, Any]) -> str:
+    tags = topic.get("tags", {})
+    tag_parts = []
+    for key, label in (
+        ("companies", "公司"),
+        ("models", "模型"),
+        ("people", "人物/账号"),
+        ("topics", "主题标签"),
+    ):
+        values = tags.get(key, [])
+        if values:
+            tag_parts.append(f"{label}: {', '.join(values)}")
+    return "标签: " + " | ".join(tag_parts) if tag_parts else ""
+
+
+def render_markdown_zh_compact(digest: dict[str, Any]) -> str:
+    domain_name = digest["domain"]["display_name"]
+    today = dt.datetime.now().strftime("%Y-%m-%d")
+    lines = [
+        f"# {domain_name} 每日简报 - {today}",
+        "",
+        f"今日从账号池中抓取 {digest['stats']['posts']} 条帖子，筛选出 {digest['stats']['topics']} 个高信号主题。",
+        "",
+    ]
+    if not digest["topics"]:
+        reason = digest.get("quality", {}).get("reason") or "今天账号池内没有足够的新内容生成热点。"
+        lines.extend([str(reason), ""])
+        return "\n".join(lines)
+
+    lines.append("## 今日要点")
+    for topic in digest["topics"]:
+        accounts = ", ".join(f"@{handle}" for handle in topic["source_accounts"][:5])
+        lines.append(f"- {compact_topic_title_zh(topic)}（{accounts}）")
+    lines.append("")
+
+    for topic in digest["topics"]:
+        lines.extend([f"## {topic['id']}. {compact_topic_title_zh(topic)}", ""])
+        if len(topic.get("posts", [])) > 1 or len(topic.get("source_accounts", [])) > 1:
+            lines.extend(compact_account_views(topic))
+            tag_line = compact_tag_line(topic)
+            if tag_line:
+                lines.extend(["", tag_line])
+            lines.append("")
+        lines.extend([compact_source_citation(topic), ""])
     return "\n".join(lines)
 
 

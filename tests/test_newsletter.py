@@ -97,14 +97,14 @@ class NewsletterTests(unittest.TestCase):
             markdown = newsletter.render_markdown(digest)
 
             self.assertIn("每日简报", markdown)
-            self.assertIn("各方观点与信号", markdown)
             self.assertIn("引用来源", markdown)
-            self.assertIn("原帖链接", markdown)
+            self.assertIn("https://x.com/karpathy/status/1001", markdown)
             self.assertIn("智能体", markdown)
             self.assertNotIn("New AI agent workflows are getting much stronger", markdown)
             self.assertNotIn("The risk with agent demos", markdown)
             self.assertNotIn("该领域的最新讨论", markdown)
             self.assertNotIn("该主题", markdown)
+            self.assertNotIn("各方观点与信号", markdown)
 
     def test_cluster_keeps_weakly_related_posts_separate(self):
         newsletter = load_module()
@@ -157,6 +157,69 @@ class NewsletterTests(unittest.TestCase):
             self.assertEqual(digest["quality"]["status"], "low_signal")
             self.assertEqual(digest["topics"], [])
             self.assertIn("未强行生成热点", markdown)
+
+    def test_single_account_low_feedback_topic_is_filtered(self):
+        newsletter = load_module()
+        with temp_home():
+            config = newsletter.load_config()
+            posts = [
+                newsletter.Post(
+                    id="1",
+                    text="Open source models keep improving. Strong local inference changes the product surface for AI apps.",
+                    url="https://x.com/natfriedman/status/1",
+                    author_handle="natfriedman",
+                    author_label="Nat Friedman",
+                    engagement={"likes": 500, "reposts": 50, "replies": 20, "quotes": 5},
+                    score=500,
+                ),
+                newsletter.Post(
+                    id="2",
+                    text="New AI agent workflows are getting much stronger. Durable memory and eval loops matter.",
+                    url="https://x.com/karpathy/status/2",
+                    author_handle="karpathy",
+                    author_label="Andrej Karpathy",
+                    engagement={"likes": 500, "reposts": 50, "replies": 150, "quotes": 0},
+                    score=500,
+                ),
+            ]
+
+            digest = newsletter.build_digest("ai", posts, config, "zh-CN")
+            titles = [topic["analysis"]["title_zh"] for topic in digest["topics"]]
+
+            self.assertEqual(len(digest["topics"]), 1)
+            self.assertTrue(any("智能体" in title for title in titles))
+
+    def test_compact_markdown_collapses_same_account_posts(self):
+        newsletter = load_module()
+        with temp_home():
+            config = newsletter.load_config()
+            posts = [
+                newsletter.Post(
+                    id="1",
+                    text="DeepSeek V4 Beats Opus 4.7 And GPT 5.5 To Become The World's Best Open Source Model.",
+                    url="https://x.com/bindureddy/status/1",
+                    author_handle="bindureddy",
+                    author_label="Bindu Reddy",
+                    engagement={"likes": 500, "reposts": 50, "replies": 150, "quotes": 0},
+                    score=500,
+                ),
+                newsletter.Post(
+                    id="2",
+                    text="Gemini is overdue. Expect a really good Flash model that beats GPT 5.5 but is cheaper and faster.",
+                    url="https://x.com/bindureddy/status/2",
+                    author_handle="bindureddy",
+                    author_label="Bindu Reddy",
+                    engagement={"likes": 300, "reposts": 20, "replies": 20, "quotes": 0},
+                    score=300,
+                ),
+            ]
+
+            digest = newsletter.build_digest("ai", posts, config, "zh-CN")
+            markdown = newsletter.render_markdown(digest)
+
+            self.assertIn("他预期 Gemini", markdown)
+            self.assertIn("@bindureddy（2条", markdown)
+            self.assertNotIn("各方观点与信号", markdown)
 
     def test_trend_reads_recent_structured_runs(self):
         newsletter = load_module()

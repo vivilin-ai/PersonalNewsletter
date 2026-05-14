@@ -257,6 +257,99 @@ class NewsletterTests(unittest.TestCase):
             self.assertTrue(Path(payload["json_path"]).exists())
             self.assertTrue(Path(payload["markdown_path"]).exists())
 
+    def test_hotspot_mode_annotates_expert_validation(self):
+        newsletter = load_module()
+        with temp_home():
+            config = newsletter.load_config()
+            config["_hotspot_mode"] = True
+            config["_runtime_expert_handles"] = ["karpathy"]
+            posts = [
+                newsletter.Post(
+                    id="1",
+                    text="New AI agent workflows are getting much stronger. Durable memory and eval loops matter.",
+                    url="https://x.com/karpathy/status/1",
+                    author_handle="karpathy",
+                    author_label="Andrej Karpathy",
+                    engagement={"likes": 500, "reposts": 50, "replies": 150, "quotes": 0},
+                    score=500,
+                ),
+                newsletter.Post(
+                    id="2",
+                    text="AI agent workflows need benchmark evals and better tool recovery to become reliable.",
+                    url="https://x.com/example/status/2",
+                    author_handle="example",
+                    author_label="Example",
+                    engagement={"likes": 120, "reposts": 20, "replies": 30, "quotes": 3},
+                    score=160,
+                ),
+            ]
+
+            digest = newsletter.build_digest("ai", posts, config, "zh-CN")
+
+            self.assertEqual(digest["mode"], "hotspots")
+            self.assertTrue(digest["topics"])
+            self.assertEqual(len(digest["candidate_coverage"]), 8)
+            self.assertTrue(all("category" in topic for topic in digest["topics"]))
+            self.assertTrue(any(topic["category"]["id"] == "agent_engineering" for topic in digest["topics"]))
+            hotspots = [topic["hotspot"] for topic in digest["topics"]]
+            self.assertTrue(any("karpathy" in item["expert_accounts"] for item in hotspots))
+            self.assertTrue(all("discussion_accounts" in item for item in hotspots))
+            markdown = newsletter.render_markdown(digest)
+            self.assertIn("#【Agent 工程】", markdown)
+            self.assertIn("##【", markdown)
+            self.assertIn("###引用来源：", markdown)
+            self.assertNotIn("总结该话题下各方的观点，特别是不同的观点", markdown)
+            self.assertNotIn("栏目覆盖：", markdown)
+            self.assertNotIn("今日从宽源候选池抓取", markdown)
+            self.assertNotIn("候选未发布", markdown)
+
+    def test_cli_run_hotspots_with_fixture(self):
+        newsletter = load_module()
+        with temp_home():
+            fixture = ROOT / "tests" / "fixtures" / "sample_posts.json"
+            output = io.StringIO()
+
+            with contextlib.redirect_stdout(output):
+                code = newsletter.main(["run", "ai", "--hotspots", "--input-json", str(fixture), "--no-deliver"])
+
+            payload = json.loads(output.getvalue())
+            self.assertEqual(code, 0)
+            self.assertEqual(payload["status"], "ok")
+            digest = json.loads(Path(payload["json_path"]).read_text())
+            self.assertEqual(digest["mode"], "hotspots")
+            self.assertEqual(len(digest["hotspot_categories"]), 8)
+            self.assertEqual(len(digest["candidate_coverage"]), 8)
+            self.assertTrue(all("category" in topic for topic in digest["topics"]))
+
+    def test_hotspot_org_strategy_rejects_low_relevance_agent_chatter(self):
+        newsletter = load_module()
+        with temp_home():
+            config = newsletter.load_config()
+            config["_hotspot_mode"] = True
+            config["quality"]["min_substantive_posts"] = 1
+            post = newsletter.Post(
+                id="1",
+                text=(
+                    "Miks I love you. But if I get another voicemail from a young agent "
+                    "that is talking about bigbacking it to help team morale I am gonna go crazy."
+                ),
+                url="https://x.com/example/status/1",
+                author_handle="example",
+                author_label="Example",
+                engagement={"likes": 500, "reposts": 50, "replies": 20, "quotes": 10},
+                score=800,
+            )
+
+            digest = newsletter.build_digest("ai", [post], config, "zh-CN")
+
+            self.assertEqual(digest["topics"], [])
+            org_item = next(
+                item for item in digest["candidate_coverage"]
+                if item["category"]["id"] == "org_strategy"
+            )
+            self.assertEqual(org_item["status"], "candidate_rejected")
+            self.assertIn("栏目相关性不足", org_item["summary"])
+
     def test_date_window(self):
         newsletter = load_module()
 

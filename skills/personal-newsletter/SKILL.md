@@ -47,6 +47,7 @@ Warn the user that `AUTH_TOKEN` and `CT0` are sensitive login credentials and mu
 python3 skills/personal-newsletter/scripts/newsletter.py run ai --no-deliver
 python3 skills/personal-newsletter/scripts/newsletter.py run us-stocks --no-deliver
 python3 skills/personal-newsletter/scripts/newsletter.py run ai --date 2026-05-04 --no-deliver
+python3 skills/personal-newsletter/scripts/newsletter.py run ai --hotspots --no-deliver
 ```
 
 Default language is `zh-CN`. In Chinese mode, the generated Markdown must be a Chinese editorial newsletter: summarize and translate X content into Chinese, cite accounts and links, and avoid placing raw English tweet text in the body. Raw source text remains available in the JSON payload for grounding.
@@ -55,6 +56,18 @@ The generator uses a two-stage pipeline:
 
 1. Build structured topic JSON from account-pool posts.
 2. Render the structured topics into Markdown.
+
+For AI hotspot discovery, prefer `run ai --hotspots`. This mode uses a wider discovery layer plus expert validation:
+
+- The 52-account personal expert pool in `data/x-lists/swyx_ai_high_signal_expert_handles_v1.json` validates and explains topics. Core and signal experts both rotate to keep public-use request volume below common X rate-limit pressure.
+- The 8-column expert registry in `data/x-lists/swyx_ai_high_signal_expert_categories_v1.json` is the preferred validation registry for `--hotspots`; it is larger than the runtime fetch set and must be sampled, not fetched in full.
+- The broader `swyx/AI High Signal` candidate list is rotated as a discovery pool. Organization, project, and product accounts may be used for discovery, but they are not counted as personal expert validation unless explicitly added to the expert handles file.
+- Event-style keyword searches for each column catch fast-moving discussion that may not originate from the expert pool. Prefer queries that combine topic terms with release/action terms such as released, launched, benchmark, open-sourced, funding, reorg, vulnerability, or prompt injection.
+- Hotspot mode is organized into 8 fixed columns: foundation models, evals/benchmarks, training/optimization, inference/infrastructure, agent engineering, products, organization/strategy, and safety/security.
+
+Each hotspot run includes `candidate_coverage`, an 8-column diagnostic that separates `published`, `candidate_rejected`, and `missing` columns. Each published hotspot topic includes a `category` object and a `hotspot` object in the JSON payload with discussion-account count, expert accounts, feedback total, and a combined hotspot score.
+
+Published hotspots must pass column-specific relevance checks. For example, organization/strategy requires concrete org, workforce, leadership, hiring, layoff, lab, or strategy language; generic mentions of "agent" or "team morale" are only candidates and should not be published.
 
 Each topic includes:
 
@@ -67,6 +80,7 @@ If the account pool has too little substantive activity, the skill should emit a
 
 Chinese newsletter rendering should be concise:
 
+- In `--hotspots` mode, render only published topics in this structure: `#【栏目】`, then `##【话题】`, then the synthesized viewpoint summary body, then `###引用来源：`. Do not include a placeholder heading such as "总结该话题下各方的观点，特别是不同的观点。". Do not tell end users how many posts were fetched, how many columns were unpublished, or why a topic deserves publication.
 - If a topic has only one source account, keep it only when the post feedback is high enough. By default, single-account topics need more than 100 replies/quote replies.
 - If one account posts multiple times in the same topic, merge those posts into one account-level viewpoint instead of listing repeated viewpoints.
 - Do not repeat the same post content in the summary, viewpoint section, and source section. Prefer a compact heading, one synthesized viewpoint when needed, optional tags for multi-post topics, and a compact source citation.

@@ -29,6 +29,7 @@ from typing import Any
 SCRIPT_DIR = Path(__file__).resolve().parent
 SKILL_DIR = SCRIPT_DIR.parent
 DOMAINS_DIR = SKILL_DIR / "domains"
+WORKSPACE_DIR = SKILL_DIR.parent.parent
 VENDORED_BIRD_MJS = SCRIPT_DIR / "vendor" / "bird-search" / "bird-search.mjs"
 
 DEFAULT_CONFIG: dict[str, Any] = {
@@ -37,6 +38,30 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "lookback_hours": 24,
     "posts_per_account": 8,
     "max_topics": 6,
+    "hotspots": {
+        "expert_handles_path": "data/x-lists/swyx_ai_high_signal_expert_handles_v1.json",
+        "category_experts_path": "data/x-lists/swyx_ai_high_signal_expert_categories_v1.json",
+        "discovery_handles_path": "data/x-lists/swyx_ai_high_signal_handles.json",
+        "exclude_handles": [],
+        "max_topics": 8,
+        "expert_validation_accounts_per_run": 14,
+        "core_experts_per_run": 16,
+        "signal_experts_per_run": 6,
+        "discovery_accounts_per_run": 12,
+        "expert_posts_per_account": 3,
+        "discovery_posts_per_account": 2,
+        "keyword_posts_per_query": 8,
+        "keyword_queries": [
+            "(launch OR released OR announced) (model OR multimodal OR embedding OR open weights)",
+            "(benchmark OR eval OR leaderboard) (released OR introduced OR saturating OR hard)",
+            "(training OR optimizer OR scaling law OR post-training) (record OR released OR improves OR faster)",
+            "(inference OR serving OR GPU OR throughput OR latency) (benchmark OR released OR improves OR cost)",
+            "(agent runtime OR agent harness OR MCP OR tool use OR computer use) (released OR open-sourced OR SDK OR paper)",
+            "(launched OR open-sourced OR GitHub OR YC OR funding) (AI OR agent OR developer tool)",
+            "(AI OR agent) (reorg OR team OR hiring OR layoffs OR workflow OR entry-level jobs)",
+            "(prompt injection OR supply chain OR vulnerability OR jailbreak OR secrets) (agent OR LLM OR AI)",
+        ],
+    },
     "quality": {
         "min_substantive_posts": 2,
         "min_topic_score": 18,
@@ -266,6 +291,92 @@ TOPIC_PATTERNS: list[tuple[str, str]] = [
     (r"\bcoding|code|codex|copilot|software\b", "coding"),
 ]
 
+HOTSPOT_CATEGORIES: list[dict[str, Any]] = [
+    {
+        "id": "foundation_models",
+        "label_zh": "基座模型",
+        "label_en": "Foundation Models",
+        "patterns": [
+            r"\bfrontier model|foundation model|base model|open model|open-weight|open weight\b",
+            r"\bgpt|claude|gemini|deepseek|qwen|kimi|llama|mistral|grok|opus|sonnet\b",
+            r"\bmultimodal|vision-language|embedding|retrieval model|long context|reasoning model\b",
+        ],
+    },
+    {
+        "id": "evals_benchmarks",
+        "label_zh": "评测与基准",
+        "label_en": "Evals and Benchmarks",
+        "patterns": [
+            r"\beval|evals|benchmark|leaderboard|frontiermath|swe-bench|terminal-bench|browsecomp|medmark\b",
+            r"\bhard eval|saturat|score|pass rate|win rate|tier 4|reasoning benchmark\b",
+        ],
+    },
+    {
+        "id": "training_optimization",
+        "label_zh": "训练与优化",
+        "label_en": "Training and Optimization",
+        "patterns": [
+            r"\bpre-training|pretraining|post-training|sft|rlhf|rlvr|synthetic data|data mix\b",
+            r"\boptimizer|scaling law|muon|soap|nesterov|attention|gradient|token per parameter\b",
+            r"\btrain|training|throughput|loss|checkpoint|fine-tun|finetun\b",
+        ],
+    },
+    {
+        "id": "inference_infra",
+        "label_zh": "推理与基础设施",
+        "label_en": "Inference and Infrastructure",
+        "patterns": [
+            r"\binference|serving|prefill|decode|kv cache|latency|throughput|token/s|cost per token\b",
+            r"\bgpu|tpu|blackwell|gb200|h100|h200|b200|nvl72|cuda|kernel|roce|all-reduce\b",
+            r"\bvector db|retriever|qdrant|vllm|modal|checkpointing|cache|orchestration\b",
+        ],
+    },
+    {
+        "id": "agent_engineering",
+        "label_zh": "Agent 工程",
+        "label_en": "Agent Engineering",
+        "patterns": [
+            r"\bagent(?:ic)? (?:design|engineering|workflow|workflows|system|systems|architecture|loop|loops)\b",
+            r"\bagentic system|agentic systems\b",
+            r"\bagent harness|agent runtime|tool use|tool-use|function calling|computer use|browser use\b",
+            r"\bmcp|memory|state|checkpoint|trace|trajectory|rollout|verifier|judge|sandbox\b",
+            r"\blong-running agent|multi-agent|agent environment|task mining|workflow orchestration\b",
+        ],
+    },
+    {
+        "id": "product_startups",
+        "label_zh": "产品",
+        "label_en": "Products",
+        "patterns": [
+            r"\bstartup|launch|product|app|waitlist|demo|users|adoption|pricing|api|sdk\b",
+            r"\bgithub|repo|open source project|trending|developer tool|cursor|codex|claude code\b",
+            r"\bseries a|seed round|funding|founder|customer|market\b",
+        ],
+    },
+    {
+        "id": "org_strategy",
+        "label_zh": "组织改革",
+        "label_en": "Organization and Strategy",
+        "patterns": [
+            r"\breorg|reorganization|org|organization|team|lab|research lab|talent|hire|hiring\b",
+            r"\bceo|cto|chief scientist|vp|leadership|acqui-hire|spinout|joined|leaving\b",
+            r"\bstrategy|roadmap|enterprise adoption|internal agent|workforce|workflow change\b",
+        ],
+    },
+    {
+        "id": "safety_security",
+        "label_zh": "安全与治理",
+        "label_en": "Safety and Security",
+        "patterns": [
+            r"\bsupply chain|npm|pypi|malware|exploit|vulnerability|prompt injection|secret|secrets\b",
+            r"\bsecurity|secure|safety|alignment|jailbreak|policy|governance|compliance|risk\b",
+            r"\bci/cd|pull_request_target|dependency|package|guardrail|sandbox escape\b",
+        ],
+    },
+]
+
+CATEGORY_BY_ID = {category["id"]: category for category in HOTSPOT_CATEGORIES}
+
 
 @dataclass
 class Account:
@@ -480,6 +591,201 @@ def run_bird_search(command: list[str], query: str, count: int) -> Any:
     return parse_human_bird_output(fallback.stdout)
 
 
+def resolve_workspace_path(value: str | Path) -> Path:
+    path = Path(value).expanduser()
+    if path.is_absolute():
+        return path
+    return WORKSPACE_DIR / path
+
+
+def load_handle_pool(path_value: str | Path, key: str | None = None) -> list[str]:
+    path = resolve_workspace_path(path_value)
+    if not path.exists():
+        return []
+    raw = load_json(path)
+    values: Any
+    if key:
+        values = raw.get(key, [])
+    else:
+        values = raw.get("all_handles") or raw.get("handles") or raw.get("core_handles") or []
+    if not isinstance(values, list):
+        return []
+    seen: set[str] = set()
+    handles: list[str] = []
+    for value in values:
+        handle = str(value).lstrip("@").strip()
+        lowered = handle.lower()
+        if not handle or lowered in seen:
+            continue
+        seen.add(lowered)
+        handles.append(handle)
+    return handles
+
+
+def rotate_handles(handles: list[str], limit: int, target_date: str | None = None) -> list[str]:
+    if limit <= 0 or len(handles) <= limit:
+        return handles[:]
+    if target_date:
+        try:
+            anchor = dt.date.fromisoformat(target_date)
+        except ValueError:
+            anchor = dt.date.today()
+    else:
+        anchor = dt.date.today()
+    offset = (anchor.toordinal() * limit) % len(handles)
+    rotated = handles[offset:] + handles[:offset]
+    return rotated[:limit]
+
+
+def pool_account(handle: str, existing: dict[str, Account], tier: str, weight: float, source: str) -> Account:
+    current = existing.get(handle.lower())
+    if current:
+        data = {**current.__dict__, "tier": tier, "weight": weight, "source": source}
+        return account_from_dict(data, source)
+    return Account(handle=handle, label=handle, role=source, tier=tier, weight=weight, source=source)
+
+
+def load_category_expert_handles(path_value: str | Path, target_date: str | None = None) -> list[str]:
+    path = resolve_workspace_path(path_value)
+    if not path.exists():
+        return []
+    raw = load_json(path)
+    categories = raw.get("categories", [])
+    if not isinstance(categories, list):
+        return []
+
+    selected: list[str] = []
+    seen: set[str] = set()
+    for category in categories:
+        if not isinstance(category, dict):
+            continue
+        sample_size = int(category.get("runtime_sample", 1) or 1)
+        experts = category.get("experts", [])
+        if not isinstance(experts, list):
+            continue
+        handles = [
+            str(item.get("handle", "")).lstrip("@").strip()
+            for item in experts
+            if isinstance(item, dict) and item.get("handle") and str(item.get("tier", "")) != "watchlist"
+        ]
+        for handle in rotate_handles(handles, sample_size, target_date):
+            lowered = handle.lower()
+            if handle and lowered not in seen:
+                seen.add(lowered)
+                selected.append(handle)
+    return selected
+
+
+def select_hotspot_expert_handles(config: dict[str, Any], target_date: str | None = None) -> list[str]:
+    hotspot_config = config.get("hotspots", {})
+    category_path = hotspot_config.get("category_experts_path", "")
+    max_accounts = int(hotspot_config.get("expert_validation_accounts_per_run", 14))
+    if category_path:
+        category_handles = load_category_expert_handles(category_path, target_date)
+        if category_handles:
+            return category_handles[:max_accounts]
+
+    expert_path = hotspot_config.get("expert_handles_path", "")
+    core_handles = rotate_handles(
+        load_handle_pool(expert_path, "core_handles"),
+        int(hotspot_config.get("core_experts_per_run", 16)),
+        target_date,
+    )
+    signal_handles = rotate_handles(
+        load_handle_pool(expert_path, "signal_handles"),
+        int(hotspot_config.get("signal_experts_per_run", 12)),
+        target_date,
+    )
+    expert_handles = core_handles + [handle for handle in signal_handles if handle.lower() not in {h.lower() for h in core_handles}]
+    return expert_handles[:max_accounts]
+
+
+def fetch_hotspots_with_bird(
+    domain_id: str,
+    accounts: list[Account],
+    config: dict[str, Any],
+    lookback_hours: int,
+    target_date: str | None = None,
+) -> tuple[list[Post], dict[str, Any]]:
+    command = bird_command()
+    if not command:
+        raise RuntimeError("bird command not found. Install/authenticate bird or set PERSONAL_NEWSLETTER_BIRD_CMD.")
+
+    hotspot_config = config.get("hotspots", {})
+    existing = {account.handle.lower(): account for account in accounts}
+    expert_path = hotspot_config.get("expert_handles_path", "")
+    category_expert_path = hotspot_config.get("category_experts_path", "")
+    discovery_path = hotspot_config.get("discovery_handles_path", "")
+    expert_handles = select_hotspot_expert_handles(config, target_date)
+    expert_set = {handle.lower() for handle in expert_handles}
+    org_exclusions = {
+        str(handle).lstrip("@").lower()
+        for handle in hotspot_config.get("exclude_handles", [])
+    }
+
+    discovery_handles = [
+        handle
+        for handle in load_handle_pool(discovery_path, "handles")
+        if handle.lower() not in expert_set and handle.lower() not in org_exclusions
+    ]
+    selected_discovery = rotate_handles(
+        discovery_handles,
+        int(hotspot_config.get("discovery_accounts_per_run", 60)),
+        target_date,
+    )
+
+    if target_date:
+        start_date, end_date = date_window(target_date)
+    else:
+        start_date, end_date = since_date(lookback_hours), ""
+
+    posts: list[Post] = []
+    errors: list[dict[str, str]] = []
+    fetch_stats: dict[str, Any] = {
+        "expert_accounts": len(expert_handles),
+        "discovery_accounts": len(selected_discovery),
+        "keyword_queries": len(hotspot_config.get("keyword_queries", [])),
+        "expert_handles_path": str(resolve_workspace_path(expert_path)) if expert_path else "",
+        "category_experts_path": str(resolve_workspace_path(category_expert_path)) if category_expert_path else "",
+        "discovery_handles_path": str(resolve_workspace_path(discovery_path)) if discovery_path else "",
+        "excluded_accounts": len(org_exclusions),
+        "errors": errors,
+    }
+
+    def collect_query(query: str, count: int, account: Account) -> None:
+        try:
+            normalized = normalize_posts(run_bird_search(command, query, count), account)
+            posts.extend(post for post in normalized if post.author_handle.lower() not in org_exclusions)
+        except RuntimeError as exc:
+            errors.append({"query": query[:160], "error": str(exc)[:240]})
+
+    expert_count = int(hotspot_config.get("expert_posts_per_account", 3))
+    for handle in expert_handles:
+        account = pool_account(handle, existing, "core", 1.0, "category_expert_pool")
+        query = f"from:{account.handle} since:{start_date}"
+        if end_date:
+            query += f" until:{end_date}"
+        collect_query(query, expert_count, account)
+
+    discovery_count = int(hotspot_config.get("discovery_posts_per_account", 2))
+    for handle in selected_discovery:
+        account = pool_account(handle, existing, "edge", 0.45, "discovery_pool")
+        query = f"from:{account.handle} since:{start_date}"
+        if end_date:
+            query += f" until:{end_date}"
+        collect_query(query, discovery_count, account)
+
+    keyword_count = int(hotspot_config.get("keyword_posts_per_query", 20))
+    search_account = Account(handle="search", label="X Search", role="keyword_search", tier="edge", weight=0.35, source="search")
+    for raw_query in hotspot_config.get("keyword_queries", []):
+        query = f"{raw_query} since:{start_date}"
+        if end_date:
+            query += f" until:{end_date}"
+        collect_query(query, keyword_count, search_account)
+
+    return dedupe_posts(posts), fetch_stats
+
+
 def parse_json_maybe(text: str) -> Any | None:
     try:
         return json.loads(text)
@@ -555,6 +861,9 @@ def normalize_post(item: dict[str, Any], account: Account) -> Post | None:
     url = str(item.get("url") or item.get("permanent_url") or "")
     tweet_id = str(item.get("id") or item.get("tweet_id") or "")
     handle = extract_handle(item) or account.handle
+    author_label = account.label or handle
+    if account.source == "search" and handle.lower() != account.handle.lower():
+        author_label = handle
     if not url and handle and tweet_id:
         url = f"https://x.com/{handle}/status/{tweet_id}"
     if not text and not url:
@@ -568,7 +877,7 @@ def normalize_post(item: dict[str, Any], account: Account) -> Post | None:
         text=text[:1200],
         url=url,
         author_handle=handle.lstrip("@"),
-        author_label=account.label or handle,
+        author_label=author_label,
         date=date,
         created_at=created_at,
         engagement=engagement,
@@ -675,9 +984,76 @@ def is_substantive_post(post: Post) -> bool:
     return len(tokenize(text)) >= 8
 
 
+def hotspot_category_scores(text: str) -> list[tuple[int, dict[str, Any]]]:
+    scores: list[tuple[int, dict[str, Any]]] = []
+    for category in HOTSPOT_CATEGORIES:
+        score = 0
+        for pattern in category["patterns"]:
+            score += len(re.findall(pattern, text, flags=re.IGNORECASE))
+        scores.append((score, category))
+    return scores
+
+
+def hotspot_category_for_post(post: Post) -> dict[str, Any] | None:
+    text = f"{post.author_handle} {post.author_label} {post.text}"
+    scored = hotspot_category_scores(text)
+    best_score, best_category = max(scored, key=lambda item: item[0])
+    if best_score <= 0:
+        return None
+    return best_category
+
+
 def tokenize(text: str) -> set[str]:
     words = re.findall(r"[A-Za-z][A-Za-z0-9_+\-.]{2,}", text.lower())
     return {word.strip(".-_") for word in words if word not in STOPWORDS and len(word) > 2}
+
+
+def cluster_hotspot_posts(posts: list[Post], max_topics: int, expert_handles: set[str]) -> list[dict[str, Any]]:
+    categorized_posts: dict[str, list[Post]] = {category["id"]: [] for category in HOTSPOT_CATEGORIES}
+    for post in posts:
+        category = hotspot_category_for_post(post)
+        if not category:
+            continue
+        categorized_posts[category["id"]].append(post)
+
+    topics_by_category: dict[str, list[dict[str, Any]]] = {}
+    for category in HOTSPOT_CATEGORIES:
+        category_posts = categorized_posts[category["id"]]
+        if not category_posts:
+            topics_by_category[category["id"]] = []
+            continue
+        category_topics = cluster_posts(category_posts, max_topics=3)
+        annotated = annotate_hotspot_topics(category_topics, expert_handles)
+        for topic in annotated:
+            topic["category"] = {
+                "id": category["id"],
+                "label_zh": category["label_zh"],
+                "label_en": category["label_en"],
+            }
+        topics_by_category[category["id"]] = annotated
+
+    selected: list[dict[str, Any]] = []
+    selected_ids: set[int] = set()
+    for category in HOTSPOT_CATEGORIES:
+        category_topics = topics_by_category.get(category["id"], [])
+        if category_topics and len(selected) < max_topics:
+            selected.append(category_topics[0])
+            selected_ids.add(id(category_topics[0]))
+
+    extras = [
+        topic
+        for category_topics in topics_by_category.values()
+        for topic in category_topics[1:]
+        if id(topic) not in selected_ids
+    ]
+    extras.sort(key=lambda item: item.get("hotspot", {}).get("score", item.get("score", 0)), reverse=True)
+    for topic in extras:
+        if len(selected) >= max_topics:
+            break
+        selected.append(topic)
+    for index, topic in enumerate(selected, start=1):
+        topic["id"] = f"H{index}"
+    return selected
 
 
 def cluster_posts(posts: list[Post], max_topics: int) -> list[dict[str, Any]]:
@@ -980,6 +1356,128 @@ def apply_quality_gate(topics: list[dict[str, Any]], posts: list[Post], config: 
     return ([] if is_low_signal else accepted), report
 
 
+def apply_hotspot_quality_gate(topics: list[dict[str, Any]], posts: list[Post], config: dict[str, Any]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    quality_config = config.get("quality", {})
+    min_substantive_posts = int(quality_config.get("min_substantive_posts", 2))
+    min_hotspot_score = float(quality_config.get("min_hotspot_score", 28))
+    substantive_posts = [post for post in posts if is_substantive_post(post)]
+    accepted: list[dict[str, Any]] = []
+    for topic in topics:
+        hotspot = topic.get("hotspot", {})
+        hotspot_score = float(hotspot.get("score", topic.get("score", 0)) or 0)
+        discussion_accounts = int(hotspot.get("discussion_accounts", 0) or 0)
+        expert_count = int(hotspot.get("expert_account_count", 0) or 0)
+        feedback_total = int(hotspot.get("feedback_total", 0) or 0)
+        has_validation = discussion_accounts >= 2 or expert_count >= 1 or feedback_total >= 200
+        if (
+            topic["quality"]["level"] != "low"
+            and hotspot_score >= min_hotspot_score
+            and has_validation
+            and hotspot_category_publish_relevance_ok(topic)
+        ):
+            accepted.append(topic)
+
+    is_low_signal = len(substantive_posts) < min_substantive_posts or not accepted
+    report = {
+        "status": "low_signal" if is_low_signal else "ok",
+        "substantive_posts": len(substantive_posts),
+        "min_substantive_posts": min_substantive_posts,
+        "min_hotspot_score": min_hotspot_score,
+        "rejected_topics": len(topics) - len(accepted),
+        "reason": "",
+    }
+    if len(substantive_posts) < min_substantive_posts:
+        report["reason"] = "候选池内有效信息不足，未强行生成热点。"
+    elif not accepted:
+        report["reason"] = "候选热点缺少足够讨论热度或专家验证，未强行生成热点。"
+    return ([] if is_low_signal else accepted), report
+
+
+def topic_feedback_total(topic: dict[str, Any]) -> int:
+    total = 0
+    for post in topic.get("posts", []):
+        engagement = post.get("engagement", {})
+        total += int(engagement.get("likes") or 0)
+        total += int(engagement.get("reposts") or 0) * 3
+        total += int(engagement.get("replies") or 0) * 2
+        total += int(engagement.get("quotes") or 0) * 4
+        total += int(engagement.get("bookmarks") or 0) * 3
+    return total
+
+
+def topic_source_text(topic: dict[str, Any]) -> str:
+    parts: list[str] = []
+    parts.append(str(topic.get("analysis", {}).get("title_zh") or ""))
+    parts.extend(str(value) for value in topic.get("keywords", []))
+    for post in topic.get("posts", []):
+        parts.append(str(post.get("author_handle") or ""))
+        parts.append(str(post.get("author_label") or ""))
+        parts.append(str(post.get("text") or ""))
+    return "\n".join(parts)
+
+
+def has_pattern(text: str, pattern: str) -> bool:
+    return bool(re.search(pattern, text, flags=re.IGNORECASE))
+
+
+def hotspot_category_publish_relevance_ok(topic: dict[str, Any]) -> bool:
+    category_id = str(topic.get("category", {}).get("id") or "")
+    text = topic_source_text(topic)
+    rules = {
+        "foundation_models": r"\b(model|models|multimodal|embedding|open weights?|claude|gpt|gemini|deepseek|qwen|kimi|llama|mistral|anthropic|openai)\b",
+        "evals_benchmarks": r"\b(eval|evals|benchmark|benchmarks|leaderboard|score|pass rate|frontiermath|swe-bench|arc-agi|mmlu|hle)\b",
+        "training_optimization": r"\b(training|train|pretraining|post-training|posttraining|optimizer|scaling law|gradient|rlhf|rlvr|synthetic data|fine-tun|distillation)\b",
+        "inference_infra": r"\b(inference|serving|latency|throughput|gpu|tpu|kernel|cuda|vllm|compute|prefill|decode|cost per token)\b",
+        "agent_engineering": r"\b(agent runtime|agent harness|tool use|tool-use|mcp|sdk|function calling|computer use|browser use|workflow|workflows|verifier|sandbox|coding agent)\b",
+        "product_startups": r"\b(launch|launched|released|open-sourced|github|repo|startup|funding|yc|product|api|sdk|developer tool|users|customers)\b",
+        "org_strategy": r"\b(reorg|reorganization|hiring|layoffs?|entry-level jobs?|workforce|organization|org chart|leadership|ceo|cto|chief scientist|vp|lab|labs|team structure|talent|strategy)\b",
+        "safety_security": r"\b(prompt injection|supply chain|vulnerability|malware|jailbreak|secret|secrets|security|secure|safety|alignment|policy|governance|risk|sandbox escape)\b",
+    }
+    pattern = rules.get(category_id)
+    return True if not pattern else has_pattern(text, pattern)
+
+
+def hotspot_rejection_reason(topic: dict[str, Any]) -> str:
+    hotspot = topic.get("hotspot", {})
+    quality = topic.get("quality", {})
+    if not hotspot_category_publish_relevance_ok(topic):
+        return "候选存在，但栏目相关性不足，避免把泛泛高互动帖误发布。"
+    return (
+        f"候选存在，但未达到发布门槛：质量={quality.get('level', 'unknown')}，"
+        f"讨论账号={hotspot.get('discussion_accounts', 0)}，"
+        f"专家验证={hotspot.get('expert_account_count', 0)}，"
+        f"互动反馈={hotspot.get('feedback_total', 0)}。"
+    )
+
+
+def annotate_hotspot_topics(topics: list[dict[str, Any]], expert_handles: set[str]) -> list[dict[str, Any]]:
+    annotated: list[dict[str, Any]] = []
+    for topic in topics:
+        source_accounts = [str(handle) for handle in topic.get("source_accounts", [])]
+        expert_accounts = sorted({handle for handle in source_accounts if handle.lower() in expert_handles})
+        feedback_total = topic_feedback_total(topic)
+        discussion_accounts = len(set(source_accounts))
+        expert_validation_score = min(40, len(expert_accounts) * 18)
+        source_diversity_score = min(25, max(0, discussion_accounts - 1) * 8)
+        discussion_score = min(60, feedback_total / 80)
+        hotspot_score = round(
+            float(topic.get("score", 0)) + expert_validation_score + source_diversity_score + discussion_score,
+            2,
+        )
+        topic["hotspot"] = {
+            "score": hotspot_score,
+            "discussion_accounts": discussion_accounts,
+            "expert_accounts": expert_accounts,
+            "expert_account_count": len(expert_accounts),
+            "feedback_total": feedback_total,
+            "expert_validation_score": expert_validation_score,
+            "source_diversity_score": source_diversity_score,
+            "discussion_score": round(discussion_score, 2),
+        }
+        annotated.append(topic)
+    return sorted(annotated, key=lambda item: item.get("hotspot", {}).get("score", item.get("score", 0)), reverse=True)
+
+
 def zh_keyword(word: str) -> str:
     normalized = word.lower().strip(".-_")
     if normalized in ZH_TERM_MAP:
@@ -1091,11 +1589,82 @@ def post_to_dict(post: Post) -> dict[str, Any]:
     }
 
 
+def build_hotspot_candidate_coverage(
+    candidate_topics: list[dict[str, Any]],
+    published_topics: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    published_ids = {str(topic.get("id")) for topic in published_topics}
+    topics_by_category: dict[str, list[dict[str, Any]]] = {category["id"]: [] for category in HOTSPOT_CATEGORIES}
+    for topic in candidate_topics:
+        category = topic_category(topic)
+        topics_by_category.setdefault(category["id"], []).append(topic)
+
+    coverage: list[dict[str, Any]] = []
+    for category in HOTSPOT_CATEGORIES:
+        category_topics = topics_by_category.get(category["id"], [])
+        if not category_topics:
+            coverage.append(
+                {
+                    "category": {
+                        "id": category["id"],
+                        "label_zh": category["label_zh"],
+                        "label_en": category["label_en"],
+                    },
+                    "status": "missing",
+                    "candidate_count": 0,
+                    "summary": "本次没有抓到候选主题。",
+                }
+            )
+            continue
+
+        top = category_topics[0]
+        status = "published" if str(top.get("id")) in published_ids else "candidate_rejected"
+        reason = ""
+        if status == "candidate_rejected":
+            reason = hotspot_rejection_reason(top)
+        coverage.append(
+            {
+                "category": {
+                    "id": category["id"],
+                    "label_zh": category["label_zh"],
+                    "label_en": category["label_en"],
+                },
+                "status": status,
+                "candidate_count": len(category_topics),
+                "summary": "已发布为正式主题。" if status == "published" else reason,
+                "top_candidate": {
+                    "id": top.get("id"),
+                    "title_zh": top.get("analysis", {}).get("title_zh") or zh_topic_title(top),
+                    "source_accounts": top.get("source_accounts", []),
+                    "post_count": len(top.get("posts", [])),
+                    "quality": top.get("quality", {}),
+                    "hotspot": top.get("hotspot", {}),
+                    "source_urls": [
+                        str(post.get("url"))
+                        for post in top.get("posts", [])[:3]
+                        if post.get("url")
+                    ],
+                },
+            }
+        )
+    return coverage
+
+
 def build_digest(domain_id: str, posts: list[Post], config: dict[str, Any], language: str) -> dict[str, Any]:
     domain = load_domain(domain_id)
-    candidate_topics = cluster_posts(posts, int(config.get("max_topics", 6)))
-    topics, quality = apply_quality_gate(candidate_topics, posts, config)
-    return {
+    hotspot_mode = bool(config.get("_hotspot_mode"))
+    if hotspot_mode:
+        max_topics = int(config.get("hotspots", {}).get("max_topics", config.get("max_topics", 6)))
+        expert_handles = {str(handle).lower() for handle in config.get("_runtime_expert_handles", [])}
+        candidate_topics = cluster_hotspot_posts(posts, max_topics, expert_handles)
+        topics, quality = apply_hotspot_quality_gate(candidate_topics, posts, config)
+        candidate_coverage = build_hotspot_candidate_coverage(candidate_topics, topics)
+    else:
+        max_topics = int(config.get("max_topics", 6))
+        candidate_topics = cluster_posts(posts, max_topics)
+        topics, quality = apply_quality_gate(candidate_topics, posts, config)
+        candidate_coverage = []
+    digest = {
         "schema_version": "0.2",
         "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(),
         "domain": {
@@ -1113,12 +1682,27 @@ def build_digest(domain_id: str, posts: list[Post], config: dict[str, Any], lang
         "candidate_topics": len(candidate_topics),
         "topics": topics,
     }
+    if hotspot_mode:
+        digest["mode"] = "hotspots"
+        digest["candidate_coverage"] = candidate_coverage
+        digest["hotspot_categories"] = [
+            {
+                "id": category["id"],
+                "label_zh": category["label_zh"],
+                "label_en": category["label_en"],
+            }
+            for category in HOTSPOT_CATEGORIES
+        ]
+        digest["hotspot_fetch"] = config.get("_hotspot_fetch", {})
+    return digest
 
 
 def render_markdown(digest: dict[str, Any]) -> str:
     language = digest.get("language", "zh-CN").lower()
     if language.startswith("en"):
         return render_markdown_en(digest)
+    if digest.get("mode") == "hotspots":
+        return render_markdown_zh_hotspots(digest)
     return render_markdown_zh_compact(digest)
 
 
@@ -1253,6 +1837,117 @@ def compact_tag_line(topic: dict[str, Any]) -> str:
         if values:
             tag_parts.append(f"{label}: {', '.join(values)}")
     return "标签: " + " | ".join(tag_parts) if tag_parts else ""
+
+
+def topic_category(topic: dict[str, Any]) -> dict[str, str]:
+    raw = topic.get("category", {})
+    category_id = str(raw.get("id") or "")
+    fallback = CATEGORY_BY_ID.get(category_id, {})
+    return {
+        "id": category_id or str(fallback.get("id") or "uncategorized"),
+        "label_zh": str(raw.get("label_zh") or fallback.get("label_zh") or "其他"),
+        "label_en": str(raw.get("label_en") or fallback.get("label_en") or "Other"),
+    }
+
+
+def hotspot_validation_line(topic: dict[str, Any]) -> str:
+    hotspot = topic.get("hotspot", {})
+    experts = [f"@{handle}" for handle in hotspot.get("expert_accounts", [])]
+    parts = [
+        f"讨论账号 {int(hotspot.get('discussion_accounts', 0) or 0)} 个",
+        f"互动反馈 {int(hotspot.get('feedback_total', 0) or 0)}",
+        f"热点分 {float(hotspot.get('score', topic.get('score', 0)) or 0):.1f}",
+    ]
+    if experts:
+        parts.insert(1, "专家验证 " + "、".join(experts[:4]))
+    return "信源质量：" + "；".join(parts) + "。"
+
+
+def hotspot_coverage_line(item: dict[str, Any]) -> str:
+    category = item.get("category", {})
+    label = str(category.get("label_zh") or "其他")
+    status = str(item.get("status") or "")
+    top = item.get("top_candidate", {})
+    title = str(top.get("title_zh") or "无候选")
+    if status == "published":
+        return f"- 【{label}】正式发布：{title}"
+    if status == "candidate_rejected":
+        accounts = "、".join(f"@{handle}" for handle in top.get("source_accounts", [])[:3])
+        suffix = f"（{accounts}）" if accounts else ""
+        return f"- 【{label}】候选未发布：{title}{suffix}"
+    return f"- 【{label}】未抓到候选主题"
+
+
+def source_citation_lines(topic: dict[str, Any]) -> list[str]:
+    lines: list[str] = []
+    by_handle: dict[str, list[str]] = {}
+    for post in topic.get("posts", []):
+        handle = str(post.get("author_handle"))
+        link = str(post.get("url") or f"https://x.com/{handle}")
+        if link not in by_handle.setdefault(handle, []):
+            by_handle[handle].append(link)
+
+    for handle, links in by_handle.items():
+        if len(links) == 1:
+            lines.append(f"- [@{handle}]({links[0]})")
+        else:
+            rendered = "、".join(f"[{index + 1}]({link})" for index, link in enumerate(links))
+            lines.append(f"- @{handle}: {rendered}")
+    return lines
+
+
+def render_hotspot_topic_viewpoint_summary(topic: dict[str, Any]) -> list[str]:
+    lines: list[str] = []
+    views = compact_account_views(topic)
+    if views:
+        lines.extend(views)
+    else:
+        summary = zh_topic_summary(topic)
+        if summary:
+            lines.append(summary)
+    stance_notes = topic.get("analysis", {}).get("stance_notes_zh", {})
+    differing_views: list[str] = []
+    for key in ("skeptical", "supportive", "observational"):
+        for note in stance_notes.get(key, []):
+            if note and note not in differing_views:
+                differing_views.append(str(note))
+    if len(differing_views) >= 2:
+        lines.append("不同观点：" + "；".join(differing_views[:3]))
+    return lines
+
+
+def render_markdown_zh_hotspots(digest: dict[str, Any]) -> str:
+    categories = digest.get("hotspot_categories") or [
+        {
+            "id": category["id"],
+            "label_zh": category["label_zh"],
+            "label_en": category["label_en"],
+        }
+        for category in HOTSPOT_CATEGORIES
+    ]
+    topics_by_category: dict[str, list[dict[str, Any]]] = {str(category["id"]): [] for category in categories}
+    for topic in digest.get("topics", []):
+        category = topic_category(topic)
+        topics_by_category.setdefault(category["id"], []).append(topic)
+
+    lines: list[str] = []
+    if not digest["topics"]:
+        reason = digest.get("quality", {}).get("reason") or "今天候选池内没有足够的新内容生成热点。"
+        lines.extend(["# AI 热点简报", "", str(reason), ""])
+        return "\n".join(lines)
+
+    for category in categories:
+        category_topics = topics_by_category.get(str(category["id"]), [])
+        if not category_topics:
+            continue
+        lines.extend([f"#【{category['label_zh']}】", ""])
+        for topic in category_topics:
+            lines.extend([f"##【{compact_topic_title_zh(topic)}】", ""])
+            lines.extend(render_hotspot_topic_viewpoint_summary(topic))
+            lines.extend(["", "###引用来源："])
+            lines.extend(source_citation_lines(topic))
+            lines.append("")
+    return "\n".join(lines)
 
 
 def render_markdown_zh_compact(digest: dict[str, Any]) -> str:
@@ -1603,8 +2298,23 @@ def cmd_run(args: argparse.Namespace) -> None:
         language = str(config.get("language") or load_domain(domain_id).get("default_language") or "zh-CN")
 
     accounts = merged_accounts(domain_id, config)
+    hotspot_mode = bool(args.hotspots)
+    if hotspot_mode:
+        config["_hotspot_mode"] = True
+        config["_runtime_expert_handles"] = select_hotspot_expert_handles(config, args.date)
     if args.input_json:
         posts = fixture_posts(Path(args.input_json), accounts)
+        if hotspot_mode:
+            config["_hotspot_fetch"] = {"source": "fixture", "input_json": args.input_json}
+    elif hotspot_mode:
+        posts, fetch_stats = fetch_hotspots_with_bird(
+            domain_id,
+            accounts,
+            config,
+            int(args.lookback_hours or config.get("lookback_hours", 24)),
+            args.date,
+        )
+        config["_hotspot_fetch"] = fetch_stats
     else:
         posts = fetch_with_bird(
             accounts,
@@ -1799,6 +2509,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--lookback-hours", type=int)
     run.add_argument("--posts-per-account", type=int)
     run.add_argument("--input-json", help="Use a fixture JSON file instead of calling bird.")
+    run.add_argument("--hotspots", action="store_true", help="Use wide discovery plus expert validation for AI hotspots.")
     run.add_argument("--no-deliver", action="store_true")
     run.set_defaults(func=cmd_run)
 

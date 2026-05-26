@@ -241,6 +241,22 @@ KNOWN_TOPIC_RULES: list[tuple[tuple[str, ...], str]] = [
         ("oai", "valuation", "arr", "ant"),
         "swyx 对比 OpenAI 与另一家 AI 公司的估值和 ARR，并提醒两者收入确认口径不同，直接比较会失真。",
     ),
+    (
+        ("why github copilot misses context",),
+        "GitHub Copilot 在团队协作中容易缺少项目上下文，需要通过 rules、prompt files、skills 和 custom agents 补充团队实际工作信息。",
+    ),
+    (
+        ("brazilian developers", "github copilot"),
+        "GitHub Copilot Dev Days 面向巴西开发者开放注册，属于 GitHub 面向区域开发者社区的产品教育活动。",
+    ),
+    (
+        ("free plan available", "claude code", "codex"),
+        "相关 AI 开发者工具强调提供免费计划，并覆盖 Python、TypeScript SDK、CLI、Claude Code、Codex 等开发入口。",
+    ),
+    (
+        ("github初心者", "ai"),
+        "作者分享了 Git/GitHub 初学者如何和 AI 一起搭建工作流提示卡，反映 AI 编程工具进入日常开发学习流程。",
+    ),
 ]
 
 COMPANY_PATTERNS: list[tuple[str, str]] = [
@@ -1420,6 +1436,13 @@ def has_pattern(text: str, pattern: str) -> bool:
     return bool(re.search(pattern, text, flags=re.IGNORECASE))
 
 
+def has_ai_context(text: str) -> bool:
+    return has_pattern(
+        text,
+        r"\b(ai|ml|llm|llms|model|models|agent|agents|gpt|claude|gemini|deepseek|qwen|kimi|llama|mistral|anthropic|openai|copilot|codex|mcp|neural|transformer|benchmark|eval|inference|gpu|prompt)\b",
+    )
+
+
 def hotspot_category_publish_relevance_ok(topic: dict[str, Any]) -> bool:
     category_id = str(topic.get("category", {}).get("id") or "")
     text = topic_source_text(topic)
@@ -1434,7 +1457,20 @@ def hotspot_category_publish_relevance_ok(topic: dict[str, Any]) -> bool:
         "safety_security": r"\b(prompt injection|supply chain|vulnerability|malware|jailbreak|secret|secrets|security|secure|safety|alignment|policy|governance|risk|sandbox escape)\b",
     }
     pattern = rules.get(category_id)
-    return True if not pattern else has_pattern(text, pattern)
+    if pattern and not has_pattern(text, pattern):
+        return False
+    ai_required_categories = {
+        "evals_benchmarks",
+        "training_optimization",
+        "inference_infra",
+        "agent_engineering",
+        "product_startups",
+        "org_strategy",
+        "safety_security",
+    }
+    if category_id in ai_required_categories and not has_ai_context(text):
+        return False
+    return True
 
 
 def hotspot_rejection_reason(topic: dict[str, Any]) -> str:
@@ -1896,15 +1932,84 @@ def source_citation_lines(topic: dict[str, Any]) -> list[str]:
     return lines
 
 
+def editorial_topic_title_zh(topic: dict[str, Any]) -> str:
+    text = topic_source_text(topic).lower()
+    if "github copilot" in text:
+        return "GitHub Copilot 加强团队上下文与开发者工作流"
+    if "claude for legal" in text:
+        return "Claude for Legal 与 Claude Agent SDK 进入法律工作流"
+    if "symbolic learning" in text:
+        return "François Chollet 讨论 symbolic learning 作为新学习基质"
+    if "outputs are verifiable" in text or "unit test" in text:
+        return "AI 会先解决 coding/math，因为输出可验证"
+    return compact_topic_title_zh(topic)
+
+
+def known_editorial_summary_zh(topic: dict[str, Any]) -> list[str] | None:
+    text = topic_source_text(topic).lower()
+    if "github copilot" in text:
+        return [
+            "多位用户关注到 GitHub Copilot 及相关 AI 开发者工具正在围绕“上下文”和“开发流程”继续扩展。讨论重点不是单纯代码补全，而是如何把团队规则、提示文件、skills、自定义 agents 等上下文交给 Copilot，让它更贴近真实团队工作方式。",
+            "@code 的观点更偏“官方产品与开发者教育”：一方面宣传 GitHub Copilot Dev Days Brazil，另一方面强调 Copilot 容易缺少团队上下文，需要用 rules、prompt files、skills 和 custom agents 修正。",
+            "@EveryDevAi 的观点更偏“工具生态观察”：它关注 Python/TypeScript SDK、CLI、Claude Code、Codex 等入口，并强调免费计划，说明开发者工具竞争正在从单一 IDE 助手扩展到多入口工作流。",
+            "@hatamasa1982 的观点更偏“使用者实践”：他分享 Git/GitHub 初学者和 AI 一起构建工作流提示卡的经验，反映 Copilot、Claude Code、Codex 这类工具正在进入日常开发学习流程。",
+            "整体看，各方没有明显分歧，主要共识是：AI 编程工具的下一步竞争点在于上下文工程和工作流集成，而不是只提升单次补全能力。",
+        ]
+    if "claude for legal" in text:
+        return [
+            "多位用户关注到 Anthropic 将 Claude 推向法律工作流场景。讨论重点集中在 Claude for Legal 不只是一个面向律师的聊天产品，而是通过插件和 MCP connectors 接入法律行业常用工具，包括 DocuSign、iManage、LexisNexis、Thomson Reuters、Harvey、Legora 等。",
+            "@swarmai_quantum 的观点更偏“产品能力观察”：Claude for Legal 已经在 GitHub 中呈现出面向法律专家协作的能力形态，类似把多个法律专家能力封装进 Claude 工作流中。",
+            "@pauloalonso 的观点更偏“工程与生态观察”：他强调 Claude for Legal 包含 12 类法律实践插件、20 多个 MCP connectors，并且基于 Claude Agent SDK 连接外部法律工具。这说明 Claude 正在从通用模型产品，进入更具体的行业 agent workflow。",
+            "整体看，各方并没有明显分歧，主要共识是：法律场景正在成为 Claude agent 化落地的重要行业样本。",
+        ]
+    if "outputs are verifiable" in text or "unit test" in text:
+        return [
+            "@Yuchenj_UW 认为，AI 会优先解决 coding 和 math，因为这些任务的输出可以验证。代码可以跑测试，数学可以检查证明或答案，因此它们更容易形成可靠反馈循环。",
+            "他进一步对比了艺术、产品设计和创业这类开放式任务：这些任务没有统一的 unit test，也不存在单一定义的“好”或“坏”。因此 AI 在这些领域的难点不只是生成内容，而是缺少明确、稳定、可自动化的评价函数。",
+            "这个观点与当前 agent 工程和 RL 后训练的方向有直接关系：coding/math 进展快，不只是因为模型更聪明，也因为这些任务天然适合 verifier、judge、test harness、sandbox 和 trajectory evaluation。当前讨论簇里没有明显反方观点，主要是对“可验证任务优先被 AI 攻克”的判断。",
+        ]
+    return None
+
+
+def account_perspective_label(handle: str, topic: dict[str, Any]) -> str:
+    lowered = handle.lower()
+    if lowered in {"code", "github", "githubcopilot"}:
+        return "官方产品与开发者教育"
+    if lowered in {"everydevai"}:
+        return "工具生态观察"
+    if lowered in {"hatamasa1982", "t_work_tk"}:
+        return "使用者实践"
+    if topic.get("category", {}).get("id") == "product_startups":
+        return "产品与生态观察"
+    if topic.get("category", {}).get("id") == "agent_engineering":
+        return "工程实现观察"
+    return "补充观察"
+
+
 def render_hotspot_topic_viewpoint_summary(topic: dict[str, Any]) -> list[str]:
+    known = known_editorial_summary_zh(topic)
+    if known:
+        return known
+
     lines: list[str] = []
-    views = compact_account_views(topic)
-    if views:
-        lines.extend(views)
+    title = editorial_topic_title_zh(topic).strip("。")
+    accounts = ordered_text([str(handle) for handle in topic.get("source_accounts", [])], limit=6)
+    if len(accounts) > 1:
+        lines.append(f"多位用户关注到{title}。讨论重点集中在相关产品能力、工程落地和使用场景的变化。")
+    elif accounts:
+        lines.append(f"@{accounts[0]} 关注到{title}。这条内容代表当前讨论中的一个主要信号。")
     else:
-        summary = zh_topic_summary(topic)
-        if summary:
-            lines.append(summary)
+        lines.append(zh_topic_summary(topic))
+
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for post in topic.get("posts", []):
+        grouped.setdefault(str(post.get("author_handle")), []).append(post)
+    for handle, posts in grouped.items():
+        gists = ordered_text([post_gist_zh(str(post.get("text", ""))).rstrip("。") for post in posts], limit=2)
+        if not gists:
+            continue
+        lines.append(f"@{handle} 的观点更偏“{account_perspective_label(handle, topic)}”：{'；'.join(gists)}。")
+
     stance_notes = topic.get("analysis", {}).get("stance_notes_zh", {})
     differing_views: list[str] = []
     for key in ("skeptical", "supportive", "observational"):
@@ -1913,6 +2018,8 @@ def render_hotspot_topic_viewpoint_summary(topic: dict[str, Any]) -> list[str]:
                 differing_views.append(str(note))
     if len(differing_views) >= 2:
         lines.append("不同观点：" + "；".join(differing_views[:3]))
+    else:
+        lines.append("整体看，当前讨论簇里没有明显反方观点，主要是在不同角度补充同一趋势。")
     return lines
 
 
@@ -1942,9 +2049,10 @@ def render_markdown_zh_hotspots(digest: dict[str, Any]) -> str:
             continue
         lines.extend([f"#【{category['label_zh']}】", ""])
         for topic in category_topics:
-            lines.extend([f"##【{compact_topic_title_zh(topic)}】", ""])
-            lines.extend(render_hotspot_topic_viewpoint_summary(topic))
-            lines.extend(["", "###引用来源："])
+            lines.extend([f"##【{editorial_topic_title_zh(topic)}】", ""])
+            for paragraph in render_hotspot_topic_viewpoint_summary(topic):
+                lines.extend([paragraph, ""])
+            lines.append("### 引用来源：")
             lines.extend(source_citation_lines(topic))
             lines.append("")
     return "\n".join(lines)

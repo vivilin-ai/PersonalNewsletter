@@ -80,7 +80,7 @@ If the account pool has too little substantive activity, the skill should emit a
 
 Chinese newsletter rendering should be concise:
 
-- In `--hotspots` mode, render only published topics in this structure: `#【栏目】`, then `##【话题】`, then the synthesized viewpoint summary body, then `###引用来源：`. Do not include a placeholder heading such as "总结该话题下各方的观点，特别是不同的观点。". Do not tell end users how many posts were fetched, how many columns were unpublished, or why a topic deserves publication.
+- In `--hotspots` mode, render only published topics in this structure: `#【栏目】`, then `##【话题】`, then the synthesized Chinese viewpoint summary body, then `### 引用来源：`. The summary body should cover each side's view, especially meaningful disagreements, but must not include instruction text such as "总结该话题下各方的观点，特别是不同的观点。". Do not tell end users how many posts were fetched, how many columns were unpublished, or why a topic deserves publication.
 - If a topic has only one source account, keep it only when the post feedback is high enough. By default, single-account topics need more than 100 replies/quote replies.
 - If one account posts multiple times in the same topic, merge those posts into one account-level viewpoint instead of listing repeated viewpoints.
 - Do not repeat the same post content in the summary, viewpoint section, and source section. Prefer a compact heading, one synthesized viewpoint when needed, optional tags for multi-post topics, and a compact source citation.

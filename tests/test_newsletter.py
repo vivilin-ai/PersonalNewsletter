@@ -297,7 +297,7 @@ class NewsletterTests(unittest.TestCase):
             markdown = newsletter.render_markdown(digest)
             self.assertIn("#【Agent 工程】", markdown)
             self.assertIn("##【", markdown)
-            self.assertIn("###引用来源：", markdown)
+            self.assertIn("### 引用来源：", markdown)
             self.assertNotIn("总结该话题下各方的观点，特别是不同的观点", markdown)
             self.assertNotIn("栏目覆盖：", markdown)
             self.assertNotIn("今日从宽源候选池抓取", markdown)
@@ -349,6 +349,43 @@ class NewsletterTests(unittest.TestCase):
             )
             self.assertEqual(org_item["status"], "candidate_rejected")
             self.assertIn("栏目相关性不足", org_item["summary"])
+
+    def test_hotspot_training_rejects_non_ai_training_posts(self):
+        newsletter = load_module()
+        with temp_home():
+            config = newsletter.load_config()
+            config["_hotspot_mode"] = True
+            config["quality"]["min_substantive_posts"] = 1
+            posts = [
+                newsletter.Post(
+                    id="1",
+                    text="New featurette of Nicholas Galitzine training for Masters of the Universe has been released.",
+                    url="https://x.com/movie/status/1",
+                    author_handle="movie",
+                    author_label="Movie",
+                    engagement={"likes": 500, "reposts": 50, "replies": 20, "quotes": 10},
+                    score=800,
+                ),
+                newsletter.Post(
+                    id="2",
+                    text="Eight new players were added to the World Cup training camp while others were released.",
+                    url="https://x.com/sports/status/2",
+                    author_handle="sports",
+                    author_label="Sports",
+                    engagement={"likes": 300, "reposts": 30, "replies": 10, "quotes": 4},
+                    score=500,
+                ),
+            ]
+
+            digest = newsletter.build_digest("ai", posts, config, "zh-CN")
+
+            self.assertEqual(digest["topics"], [])
+            training_item = next(
+                item for item in digest["candidate_coverage"]
+                if item["category"]["id"] == "training_optimization"
+            )
+            self.assertEqual(training_item["status"], "candidate_rejected")
+            self.assertIn("栏目相关性不足", training_item["summary"])
 
     def test_date_window(self):
         newsletter = load_module()
